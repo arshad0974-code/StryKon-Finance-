@@ -1,0 +1,6 @@
+{
+  "name": "Strykon Finance OS",
+  "description": "Full-stack financial management web application for Strykon agency with relational database integrity, partner-wise ledgers, and multi-currency accounting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
