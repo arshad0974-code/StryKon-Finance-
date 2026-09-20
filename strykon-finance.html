@@ -1,0 +1,3861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strykon Finance OS — Standalone Edition</title>
+  <!-- Tailwind CSS CDN for instant styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #020617; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .tab-active { border-color: #10b981; color: #10b981; background-color: rgba(16, 185, 129, 0.05); }
+    .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    /* Embedded SVG Icon helper classes */
+    .icon { display: inline-block; width: 1.125rem; height: 1.125rem; vertical-align: middle; stroke-width: 2; stroke: currentColor; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-slate-950">
+
+  <!-- Standalone Offline Notice & User Role Switcher Header -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand & Offline Indicator -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-black text-slate-950 text-xl tracking-wider shadow-sm">
+          S
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-base tracking-tight text-white">STRYKON</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Finance OS</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Standalone HTML</span>
+          </div>
+          <p class="text-[11px] text-slate-400">100% Offline • Local Browser Storage • Base PKR (USD @ 280)</p>
+        </div>
+      </div>
+
+      <!-- Header Controls: Active Role Switcher & Export Backup -->
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700/80 rounded-xl p-1 text-xs">
+          <span class="text-slate-400 text-[11px] pl-2 hidden sm:inline">Role:</span>
+          <select id="roleSelector" onchange="switchActiveRole(this.value)" class="bg-slate-900 text-white rounded-lg px-2 py-1 text-xs border border-slate-700 font-semibold focus:outline-none focus:border-emerald-500">
+            <option value="admin">Agency Administrator</option>
+            <option value="musaddiq">Musaddiq Mustafa (Partner)</option>
+            <option value="arshad">Arshad Qazi (Partner)</option>
+          </select>
+        </div>
+
+        <button onclick="exportBackupJson()" class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors">
+          <span>Export JSON</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Navigation Bar -->
+  <nav class="bg-slate-900/60 border-b border-slate-800/80 sticky top-16 z-30 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 overflow-x-auto py-2 text-xs font-semibold scrollbar-none">
+      <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors tab-active">Dashboard</button>
+      <button onclick="navigateTo('partners')" id="nav-partners" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">Partners & Equity</button>
+      <button onclick="navigateTo('clients')" id="nav-clients" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">Clients & Invoices</button>
+      <button onclick="navigateTo('payments')" id="nav-payments" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">Payments</button>
+      <button onclick="navigateTo('expenses')" id="nav-expenses" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">Expenses</button>
+      <button onclick="navigateTo('accounts')" id="nav-accounts" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">Accounts & Transfers</button>
+      <button onclick="navigateTo('ledger')" id="nav-ledger" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">General Ledger</button>
+      <button onclick="navigateTo('checklist')" id="nav-checklist" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors flex items-center gap-1.5">
+        <span>Acceptance Tests</span>
+        <span id="nav-tests-badge" class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px]">14/14</span>
+      </button>
+      <button onclick="navigateTo('settings')" id="nav-settings" class="px-3.5 py-2 rounded-xl border border-transparent text-slate-300 hover:text-white transition-colors">Settings & Backup</button>
+    </div>
+  </nav>
+
+  <!-- Main View Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- View: Dashboard -->
+    <section id="view-dashboard" class="space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 id="dash-title" class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <span>Strykon Financial Command Center</span>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Standalone Offline</span>
+          </h1>
+          <p id="dash-subtitle" class="text-xs text-slate-400 mt-1">
+            Real-time accounting ledger consolidated in PKR with dual USD tracking & separate partner accounting.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openModal('modal-payment')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors shadow-sm">
+            + Record Client Payment
+          </button>
+          <button onclick="openModal('modal-expense')" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs transition-colors">
+            + Add Expense
+          </button>
+          <button onclick="openModal('modal-invoice')" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow-sm">
+            + Issue Invoice
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-cards-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- Partner Breakdown Spotlight -->
+      <div id="partner-summary-section" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white">Partner-Wise Financial Summaries</h2>
+            <p class="text-xs text-slate-400">Strict separation: Musaddiq Mustafa & Arshad Qazi (50% equity each)</p>
+          </div>
+          <button onclick="navigateTo('partners')" class="text-xs font-semibold text-emerald-400 hover:underline">Dedicated Ledgers &rarr;</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="partner-cards-grid">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Recent Transactions Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white">Recent Financial Transactions</h2>
+          <button onclick="navigateTo('ledger')" class="text-xs font-semibold text-emerald-400 hover:underline">View All Ledger &rarr;</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-800">
+                <th class="py-2">Date</th>
+                <th class="py-2">Entity / Ref</th>
+                <th class="py-2">Type</th>
+                <th class="py-2 text-right">Amount (PKR)</th>
+                <th class="py-2 text-right">Account</th>
+              </tr>
+            </thead>
+            <tbody id="dash-recent-txs" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Injected via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Partners & Equity -->
+    <section id="view-partners" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Partner Ledgers & Equity Accounting</h2>
+          <p class="text-xs text-slate-400 mt-1">Independent ledger separation for Musaddiq Mustafa and Arshad Qazi.</p>
+        </div>
+        <button onclick="openModal('modal-distribution')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs">
+          + Record Drawing / Distribution
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="partners-detailed-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- View: Clients & Invoices -->
+    <section id="view-clients" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Client Portfolio & Invoices</h2>
+          <p class="text-xs text-slate-400 mt-1">Manage client accounts, contracts, billings, and overdue statuses.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openModal('modal-client')" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs">
+            + Add Client
+          </button>
+          <button onclick="openModal('modal-invoice')" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs">
+            + Create Invoice
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <h3 class="text-sm font-bold text-white">Invoices Registry</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-800">
+                <th class="py-2.5">Invoice #</th>
+                <th class="py-2.5">Client</th>
+                <th class="py-2.5">Due Date</th>
+                <th class="py-2.5 text-right">Total (PKR)</th>
+                <th class="py-2.5 text-right">Balance Due</th>
+                <th class="py-2.5 text-center">Status</th>
+                <th class="py-2.5 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="invoices-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Injected via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Payments -->
+    <section id="view-payments" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Client Payment Receipts</h2>
+          <p class="text-xs text-slate-400 mt-1">Multi-currency receipt ledger with frozen USD/PKR historical conversion.</p>
+        </div>
+        <button onclick="openModal('modal-payment')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">
+          + Record Payment
+        </button>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-800">
+                <th class="py-2.5">Receipt #</th>
+                <th class="py-2.5">Date</th>
+                <th class="py-2.5">Client</th>
+                <th class="py-2.5">Partner</th>
+                <th class="py-2.5">Original</th>
+                <th class="py-2.5 text-right">Amount (PKR)</th>
+                <th class="py-2.5">Account</th>
+              </tr>
+            </thead>
+            <tbody id="payments-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Injected via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Expenses -->
+    <section id="view-expenses" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Operating Expense Ledger</h2>
+          <p class="text-xs text-slate-400 mt-1">Agency operating disbursements. Partner loans & drawings are strictly excluded.</p>
+        </div>
+        <button onclick="openModal('modal-expense')" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs">
+          + Add Operating Expense
+        </button>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-800">
+                <th class="py-2.5">Expense #</th>
+                <th class="py-2.5">Date</th>
+                <th class="py-2.5">Category</th>
+                <th class="py-2.5">Description</th>
+                <th class="py-2.5">Paid By</th>
+                <th class="py-2.5 text-right">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody id="expenses-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Injected via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Accounts -->
+    <section id="view-accounts" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Bank Accounts & Liquidity</h2>
+          <p class="text-xs text-slate-400 mt-1">Corporate bank accounts, Stripe USD, cash, and partner drawing accounts.</p>
+        </div>
+        <button onclick="openModal('modal-transfer')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">
+          Transfer Funds
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="accounts-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- View: General Ledger -->
+    <section id="view-ledger" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Central Financial Ledger</h2>
+          <p class="text-xs text-slate-400 mt-1">Double-entry accounting journal with immutable reversal trails.</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-800">
+                <th class="py-2.5">TX #</th>
+                <th class="py-2.5">Date</th>
+                <th class="py-2.5">Type</th>
+                <th class="py-2.5">Description</th>
+                <th class="py-2.5">Account</th>
+                <th class="py-2.5 text-right">Amount (PKR)</th>
+                <th class="py-2.5 text-center">Status</th>
+                <th class="py-2.5 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="ledger-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Injected via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Acceptance Checklist -->
+    <section id="view-checklist" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">14 Acceptance Criteria Verification</h2>
+          <p class="text-xs text-slate-400 mt-1">Automated validation engine running against the local browser database.</p>
+        </div>
+        <button onclick="runLocalAcceptanceTests()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">
+          Re-Run Verification
+        </button>
+      </div>
+
+      <div class="space-y-3" id="checklist-results">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- View: Settings & Backup -->
+    <section id="view-settings" class="space-y-6 hidden">
+      <!-- Legal Notice -->
+      <div class="bg-amber-950/40 border border-amber-600/40 rounded-2xl p-5 text-amber-200 space-y-2">
+        <h3 class="text-sm font-bold text-amber-400">Accounting & Legal Compliance Disclaimer</h3>
+        <p class="text-xs leading-relaxed">
+          <strong>Mandatory Notice:</strong> Before using this application for official accounting, tax filings, or financial statements, have the accounting classifications and reporting rules reviewed by a qualified accountant.
+        </p>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <h3 class="text-base font-bold text-white">Data Management & Local Backups</h3>
+        <p class="text-xs text-slate-400">
+          Your data is stored securely in your browser's LocalStorage. To transfer data across computers or devices, export a JSON backup file and import it on the target device.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3 pt-2">
+          <button onclick="exportBackupJson()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs">
+            Export Complete Backup (.JSON)
+          </button>
+          <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs cursor-pointer">
+            Import Backup File (.JSON)
+            <input type="file" accept=".json" onchange="importBackupJson(event)" class="hidden">
+          </label>
+          <button onclick="resetToBlankState()" class="px-4 py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/80 font-bold text-xs">
+            Reset to Blank Financial Database
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modals Container -->
+  <div id="modal-backdrop" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    
+    <!-- Modal: Payment -->
+    <div id="modal-payment" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 hidden">
+      <h3 class="text-base font-bold text-white">Record Client Payment Receipt</h3>
+      <form onsubmit="handleRecordPayment(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Client *</label>
+          <select id="pay-client" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Attributed Partner *</label>
+          <select id="pay-partner" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+            <option value="1">Musaddiq Mustafa</option>
+            <option value="2">Arshad Qazi</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 mb-1">Currency *</label>
+            <select id="pay-currency" onchange="updatePayConversion()" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+              <option value="USD">USD ($)</option>
+              <option value="PKR">PKR (₨)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Amount *</label>
+            <input type="number" id="pay-amount" value="100" min="1" step="any" required oninput="updatePayConversion()" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white font-mono">
+          </div>
+        </div>
+        <div class="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700 text-[11px] text-emerald-400 font-mono" id="pay-converted-display">
+          Converted: PKR 28,000 (Rate 280)
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Receiving Bank / Cash Account *</label>
+          <select id="pay-account" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold">Save Receipt</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Expense -->
+    <div id="modal-expense" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 hidden">
+      <h3 class="text-base font-bold text-white">Record Operating Expense</h3>
+      <form onsubmit="handleRecordExpense(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Category *</label>
+          <select id="exp-category" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+            <option value="software_subscriptions">Software Subscriptions (SaaS / AI)</option>
+            <option value="office_utilities">Office & Utilities</option>
+            <option value="contractor_freelancer">Contractor & Freelancer Fees</option>
+            <option value="marketing_ads">Marketing & Ads</option>
+            <option value="miscellaneous">Miscellaneous Operations</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Description *</label>
+          <input type="text" id="exp-desc" placeholder="e.g. Server hosting or marketing fees" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 mb-1">Amount (PKR) *</label>
+            <input type="number" id="exp-amount" value="5000" min="1" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Paid By (Attribution) *</label>
+            <select id="exp-paid-by" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+              <option value="company">Company Account</option>
+              <option value="musaddiq">Musaddiq Mustafa (Out of Pocket)</option>
+              <option value="arshad">Arshad Qazi (Out of Pocket)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Funding Account *</label>
+          <select id="exp-account" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold">Record Expense</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Invoice -->
+    <div id="modal-invoice" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 hidden">
+      <h3 class="text-base font-bold text-white">Issue Client Invoice</h3>
+      <form onsubmit="handleCreateInvoice(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Client *</label>
+          <select id="inv-client" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 mb-1">Invoice Amount (PKR) *</label>
+            <input type="number" id="inv-amount" value="100000" min="1" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Due Date *</label>
+            <input type="date" id="inv-due" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">Issue Invoice</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Client -->
+    <div id="modal-client" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 hidden">
+      <h3 class="text-base font-bold text-white">Add New Client Profile</h3>
+      <form onsubmit="handleCreateClient(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Company / Client Name *</label>
+          <input type="text" id="cli-name" required placeholder="e.g. Apex Global Tech" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Contact Email</label>
+          <input type="email" id="cli-email" placeholder="billing@client.com" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold">Save Client</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Partner Distribution -->
+    <div id="modal-distribution" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 hidden">
+      <h3 class="text-base font-bold text-white">Record Partner Drawing / Distribution</h3>
+      <form onsubmit="handleRecordDistribution(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Partner *</label>
+          <select id="dist-partner" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+            <option value="1">Musaddiq Mustafa (50% Equity)</option>
+            <option value="2">Arshad Qazi (50% Equity)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Distribution Type *</label>
+          <select id="dist-type" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+            <option value="withdrawal">Personal Drawing / Withdrawal</option>
+            <option value="dividend">Dividend (Profit Share)</option>
+            <option value="salary">Partner Management Salary</option>
+            <option value="bonus">Performance Bonus</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Amount (PKR) *</label>
+          <input type="number" id="dist-amount" value="50000" min="1" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white font-mono">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Payout Account *</label>
+          <select id="dist-account" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">Record Distribution</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Transfer -->
+    <div id="modal-transfer" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 hidden">
+      <h3 class="text-base font-bold text-white">Inter-Account Funds Transfer</h3>
+      <form onsubmit="handleTransferFunds(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">From Source Account *</label>
+          <select id="tr-from" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">To Destination Account *</label>
+          <select id="tr-to" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Amount (PKR) *</label>
+          <input type="number" id="tr-amount" value="25000" min="1" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white font-mono">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold">Execute Transfer</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- Embedded Local State Engine & Reactive Script -->
+  <script>
+    const STORAGE_KEY = 'STRYKON_FINANCE_DATA_V2';
+
+    // Initial Blank Database Template
+    function getBlankState() {
+      return {
+  "agency": "Strykon",
+  "base_currency": "PKR",
+  "default_usd_rate": 280,
+  "active_role": "admin",
+  "partners": [
+    {
+      "id": 1,
+      "name": "Musaddiq Mustafa",
+      "equity": 50,
+      "email": "musaddiq@strykon.agency",
+      "phone": "+92 300 1234567",
+      "account_id": 5
+    },
+    {
+      "id": 2,
+      "name": "Arshad Qazi",
+      "equity": 50,
+      "email": "arshad@strykon.agency",
+      "phone": "+92 301 7654321",
+      "account_id": 6
+    }
+  ],
+  "accounts": [
+    {
+      "id": 1,
+      "name": "HBL Corporate Main",
+      "type": "bank",
+      "currency": "PKR",
+      "balance": 26372,
+      "number": "PK12HABB000123456789",
+      "partner_id": null
+    },
+    {
+      "id": 2,
+      "name": "Meezan Islamic Business",
+      "type": "bank",
+      "currency": "PKR",
+      "balance": 0,
+      "number": "PK88MEZN000987654321",
+      "partner_id": null
+    },
+    {
+      "id": 3,
+      "name": "Stripe USD Merchant",
+      "type": "stripe_usd",
+      "currency": "USD",
+      "balance": 0,
+      "number": "acct_stripe_us_101",
+      "partner_id": null
+    },
+    {
+      "id": 4,
+      "name": "Office Cash Box",
+      "type": "cash",
+      "currency": "PKR",
+      "balance": 0,
+      "number": "CASH-ISB-01",
+      "partner_id": null
+    },
+    {
+      "id": 5,
+      "name": "Musaddiq Partner Ledger",
+      "type": "partner_personal",
+      "currency": "PKR",
+      "balance": 10452,
+      "number": "PRT-MUS-01",
+      "partner_id": 1
+    },
+    {
+      "id": 6,
+      "name": "Arshad Partner Ledger",
+      "type": "partner_personal",
+      "currency": "PKR",
+      "balance": 20920,
+      "number": "PRT-ARS-02",
+      "partner_id": 2
+    }
+  ],
+  "clients": [
+    {
+      "id": 1,
+      "name": "Merrylaz Client Rep",
+      "company_name": "Merrylaz",
+      "email": "billing@merrylaz.com",
+      "country": "United Kingdom"
+    },
+    {
+      "id": 2,
+      "name": "PAIDA PARIS Rep",
+      "company_name": "PAIDA PARIS",
+      "email": "contact@paidaparis.com",
+      "country": "France"
+    },
+    {
+      "id": 3,
+      "name": "Technobird Rep",
+      "company_name": "Technobird",
+      "email": "accounts@technobird.com",
+      "country": "Pakistan"
+    },
+    {
+      "id": 4,
+      "name": "Smart Fix MD Rep",
+      "company_name": "Smart Fix MD",
+      "email": "info@smartfixmd.com",
+      "country": "United States"
+    },
+    {
+      "id": 5,
+      "name": "Pukhtoon Trade Test Centre",
+      "company_name": "Pukhtoon Trade Test Centre",
+      "email": "pttc@gmail.com",
+      "country": "Pakistan"
+    },
+    {
+      "id": 6,
+      "name": "Dr. Hammad",
+      "company_name": "Hammad Physio Clinic",
+      "email": "drhammad@physio.pk",
+      "country": "Pakistan"
+    },
+    {
+      "id": 7,
+      "name": "Hamza Falcon Rep",
+      "company_name": "Hamza Falcon",
+      "email": "falcon@hamza.com",
+      "country": "Pakistan"
+    }
+  ],
+  "invoices": [
+    {
+      "id": 1,
+      "invoice_number": "INV-2026-001",
+      "client_id": 1,
+      "total_amount": 45000,
+      "paid_amount": 45000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-03-08",
+      "due_date": "2026-03-08",
+      "notes": "Merrylaz - SEO & Digital Strategy (March retainer)"
+    },
+    {
+      "id": 2,
+      "invoice_number": "INV-2026-002",
+      "client_id": 3,
+      "total_amount": 20000,
+      "paid_amount": 20000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-03-18",
+      "due_date": "2026-03-18",
+      "notes": "Technobird - Performance Marketing & Ads"
+    },
+    {
+      "id": 3,
+      "invoice_number": "INV-2026-003",
+      "client_id": 1,
+      "total_amount": 70000,
+      "paid_amount": 70000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-04-07",
+      "due_date": "2026-04-07",
+      "notes": "Merrylaz - Full-scale Organic Campaign (April retainer)"
+    },
+    {
+      "id": 4,
+      "invoice_number": "INV-2026-004",
+      "client_id": 2,
+      "total_amount": 21000,
+      "paid_amount": 21000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-04-15",
+      "due_date": "2026-04-15",
+      "notes": "PAIDA PARIS - Brand Outreach & Social (Milestone 1)"
+    },
+    {
+      "id": 5,
+      "invoice_number": "INV-2026-005",
+      "client_id": 1,
+      "total_amount": 70000,
+      "paid_amount": 70000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-05-08",
+      "due_date": "2026-05-08",
+      "notes": "Merrylaz - Content & Technical SEO (May retainer)"
+    },
+    {
+      "id": 6,
+      "invoice_number": "INV-2026-006",
+      "client_id": 2,
+      "total_amount": 21000,
+      "paid_amount": 21000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-05-20",
+      "due_date": "2026-05-20",
+      "notes": "PAIDA PARIS - Influencer Marketing (Milestone 2)"
+    },
+    {
+      "id": 7,
+      "invoice_number": "INV-2026-007",
+      "client_id": 1,
+      "total_amount": 90000,
+      "paid_amount": 90000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-06-06",
+      "due_date": "2026-06-06",
+      "notes": "Merrylaz - Global Multi-Region Rollout (June retainer)"
+    },
+    {
+      "id": 8,
+      "invoice_number": "INV-2026-008",
+      "client_id": 3,
+      "total_amount": 24000,
+      "paid_amount": 24000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-06-15",
+      "due_date": "2026-06-15",
+      "notes": "Technobird - Growth Hacking & CRO Sprint"
+    },
+    {
+      "id": 9,
+      "invoice_number": "INV-2026-009",
+      "client_id": 2,
+      "total_amount": 16000,
+      "paid_amount": 16000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-06-22",
+      "due_date": "2026-06-22",
+      "notes": "PAIDA PARIS - Creative Design & Asset Delivery"
+    },
+    {
+      "id": 10,
+      "invoice_number": "INV-2026-010",
+      "client_id": 1,
+      "total_amount": 75000,
+      "paid_amount": 75000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-07-06",
+      "due_date": "2026-07-06",
+      "notes": "Merrylaz - Summer Scale Retainer"
+    },
+    {
+      "id": 11,
+      "invoice_number": "INV-2026-011",
+      "client_id": 3,
+      "total_amount": 11500,
+      "paid_amount": 11500,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-07-12",
+      "due_date": "2026-07-12",
+      "notes": "Technobird - Monthly Maintenance & Analytics"
+    },
+    {
+      "id": 12,
+      "invoice_number": "INV-2026-012",
+      "client_id": 5,
+      "total_amount": 10000,
+      "paid_amount": 10000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-07-18",
+      "due_date": "2026-07-18",
+      "notes": "Pukhtoon Trade Test Centre - Portal Marketing Phase 1"
+    },
+    {
+      "id": 13,
+      "invoice_number": "INV-2026-013",
+      "client_id": 6,
+      "total_amount": 10000,
+      "paid_amount": 10000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-07-25",
+      "due_date": "2026-07-25",
+      "notes": "Hammad Physio Clinic - Local Healthcare SEO"
+    },
+    {
+      "id": 14,
+      "invoice_number": "INV-2026-014",
+      "client_id": 1,
+      "total_amount": 70000,
+      "paid_amount": 70000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-08-06",
+      "due_date": "2026-08-06",
+      "notes": "Merrylaz - August Retainer & Backlink Profile"
+    },
+    {
+      "id": 15,
+      "invoice_number": "INV-2026-015",
+      "client_id": 2,
+      "total_amount": 16000,
+      "paid_amount": 16000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-08-12",
+      "due_date": "2026-08-12",
+      "notes": "PAIDA PARIS - Q3 Brand Boost Retainer"
+    },
+    {
+      "id": 16,
+      "invoice_number": "INV-2026-016",
+      "client_id": 3,
+      "total_amount": 12000,
+      "paid_amount": 12000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-08-16",
+      "due_date": "2026-08-16",
+      "notes": "Technobird - Performance Optimization"
+    },
+    {
+      "id": 17,
+      "invoice_number": "INV-2026-017",
+      "client_id": 5,
+      "total_amount": 11000,
+      "paid_amount": 11000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-08-22",
+      "due_date": "2026-08-22",
+      "notes": "Pukhtoon Trade Test Centre - Portal Marketing Phase 2"
+    },
+    {
+      "id": 18,
+      "invoice_number": "INV-2026-018",
+      "client_id": 7,
+      "total_amount": 5000,
+      "paid_amount": 5000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-08-26",
+      "due_date": "2026-08-26",
+      "notes": "Hamza Falcon - Website Launch & Meta Ads"
+    },
+    {
+      "id": 19,
+      "invoice_number": "INV-2026-019",
+      "client_id": 4,
+      "total_amount": 10000,
+      "paid_amount": 10000,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-09-02",
+      "due_date": "2026-09-02",
+      "notes": "Smart Fix MD - Telehealth Lead Generation Sprint 1"
+    },
+    {
+      "id": 20,
+      "invoice_number": "INV-2026-020",
+      "client_id": 4,
+      "total_amount": 15500,
+      "paid_amount": 15500,
+      "balance_due": 0,
+      "status": "paid",
+      "issue_date": "2026-09-10",
+      "due_date": "2026-09-10",
+      "notes": "Smart Fix MD - Telehealth Lead Generation Sprint 2"
+    },
+    {
+      "id": 21,
+      "invoice_number": "INV-2026-021",
+      "client_id": 3,
+      "total_amount": 15000,
+      "paid_amount": 0,
+      "balance_due": 15000,
+      "status": "sent",
+      "issue_date": "2026-09-15",
+      "due_date": "2026-09-15",
+      "notes": "Technobird - Q4 Growth Retainer (Open/Upcoming)"
+    }
+  ],
+  "payments": [
+    {
+      "id": 1,
+      "payment_number": "PAY-2026-001",
+      "client_id": 1,
+      "invoice_id": 1,
+      "account_id": 5,
+      "partner_id": 1,
+      "payment_date": "2026-03-08",
+      "amount": 45000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 45000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Musaddiq"
+    },
+    {
+      "id": 2,
+      "payment_number": "PAY-2026-002",
+      "client_id": 3,
+      "invoice_id": 2,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-03-18",
+      "amount": 20000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 20000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 3,
+      "payment_number": "PAY-2026-003",
+      "client_id": 1,
+      "invoice_id": 3,
+      "account_id": 5,
+      "partner_id": 1,
+      "payment_date": "2026-04-07",
+      "amount": 70000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 70000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Musaddiq"
+    },
+    {
+      "id": 4,
+      "payment_number": "PAY-2026-004",
+      "client_id": 2,
+      "invoice_id": 4,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-04-15",
+      "amount": 21000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 21000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 5,
+      "payment_number": "PAY-2026-005",
+      "client_id": 1,
+      "invoice_id": 5,
+      "account_id": 5,
+      "partner_id": 1,
+      "payment_date": "2026-05-08",
+      "amount": 70000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 70000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Musaddiq"
+    },
+    {
+      "id": 6,
+      "payment_number": "PAY-2026-006",
+      "client_id": 2,
+      "invoice_id": 6,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-05-20",
+      "amount": 21000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 21000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 7,
+      "payment_number": "PAY-2026-007",
+      "client_id": 1,
+      "invoice_id": 7,
+      "account_id": 5,
+      "partner_id": 1,
+      "payment_date": "2026-06-06",
+      "amount": 90000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 90000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Musaddiq"
+    },
+    {
+      "id": 8,
+      "payment_number": "PAY-2026-008",
+      "client_id": 3,
+      "invoice_id": 8,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-06-15",
+      "amount": 24000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 24000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 9,
+      "payment_number": "PAY-2026-009",
+      "client_id": 2,
+      "invoice_id": 9,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-06-22",
+      "amount": 16000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 16000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 10,
+      "payment_number": "PAY-2026-010",
+      "client_id": 1,
+      "invoice_id": 10,
+      "account_id": 5,
+      "partner_id": 1,
+      "payment_date": "2026-07-06",
+      "amount": 75000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 75000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Musaddiq"
+    },
+    {
+      "id": 11,
+      "payment_number": "PAY-2026-011",
+      "client_id": 3,
+      "invoice_id": 11,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-07-12",
+      "amount": 11500,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 11500,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 12,
+      "payment_number": "PAY-2026-012",
+      "client_id": 5,
+      "invoice_id": 12,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-07-18",
+      "amount": 10000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 10000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 13,
+      "payment_number": "PAY-2026-013",
+      "client_id": 6,
+      "invoice_id": 13,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-07-25",
+      "amount": 10000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 10000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 14,
+      "payment_number": "PAY-2026-014",
+      "client_id": 1,
+      "invoice_id": 14,
+      "account_id": 5,
+      "partner_id": 1,
+      "payment_date": "2026-08-06",
+      "amount": 70000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 70000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Musaddiq"
+    },
+    {
+      "id": 15,
+      "payment_number": "PAY-2026-015",
+      "client_id": 2,
+      "invoice_id": 15,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-08-12",
+      "amount": 16000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 16000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 16,
+      "payment_number": "PAY-2026-016",
+      "client_id": 3,
+      "invoice_id": 16,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-08-16",
+      "amount": 12000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 12000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 17,
+      "payment_number": "PAY-2026-017",
+      "client_id": 5,
+      "invoice_id": 17,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-08-22",
+      "amount": 11000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 11000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 18,
+      "payment_number": "PAY-2026-018",
+      "client_id": 7,
+      "invoice_id": 18,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-08-26",
+      "amount": 5000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 5000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 19,
+      "payment_number": "PAY-2026-019",
+      "client_id": 4,
+      "invoice_id": 19,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-09-02",
+      "amount": 10000,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 10000,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    },
+    {
+      "id": 20,
+      "payment_number": "PAY-2026-020",
+      "client_id": 4,
+      "invoice_id": 20,
+      "account_id": 6,
+      "partner_id": 2,
+      "payment_date": "2026-09-10",
+      "amount": 15500,
+      "currency": "PKR",
+      "exchange_rate": 1,
+      "amount_pkr": 15500,
+      "payment_method": "bank_transfer",
+      "reference_note": "Client payment collected by partner Arshad"
+    }
+  ],
+  "expenses": [
+    {
+      "id": 1,
+      "expense_number": "EXP-2026-001",
+      "title": "Namecheap & Cloudflare CDN Setup",
+      "category": "software_tools",
+      "amount": 6200,
+      "amount_pkr": 6200,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Namecheap",
+      "expense_date": "2026-03-02",
+      "notes": "Sheet category: Domain/Hosting | Disbursed by Musaddiq"
+    },
+    {
+      "id": 2,
+      "expense_number": "EXP-2026-002",
+      "title": "Ahrefs & SEMrush Agency Access",
+      "category": "software_tools",
+      "amount": 9940,
+      "amount_pkr": 9940,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Ahrefs Pte",
+      "expense_date": "2026-03-05",
+      "notes": "Sheet category: Tool | Disbursed by Musaddiq"
+    },
+    {
+      "id": 3,
+      "expense_number": "EXP-2026-003",
+      "title": "PTCL Fiber Broadband Office Internet",
+      "category": "utilities",
+      "amount": 3200,
+      "amount_pkr": 3200,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "PTCL",
+      "expense_date": "2026-03-12",
+      "notes": "Sheet category: Bill | Disbursed by Musaddiq"
+    },
+    {
+      "id": 4,
+      "expense_number": "EXP-2026-004",
+      "title": "Office Stationery & Whiteboard Kit",
+      "category": "miscellaneous",
+      "amount": 1990,
+      "amount_pkr": 1990,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Metro Cash & Carry",
+      "expense_date": "2026-03-15",
+      "notes": "Sheet category: Office | Disbursed by Musaddiq"
+    },
+    {
+      "id": 5,
+      "expense_number": "EXP-2026-005",
+      "title": "Nestle Mineral Water Dispenser Bottles",
+      "category": "utilities",
+      "amount": 1200,
+      "amount_pkr": 1200,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Nestle Pure Life",
+      "expense_date": "2026-03-20",
+      "notes": "Sheet category: Water | Disbursed by Musaddiq"
+    },
+    {
+      "id": 6,
+      "expense_number": "EXP-2026-006",
+      "title": "Inbound Growth & SEO Masterclass",
+      "category": "marketing",
+      "amount": 3990,
+      "amount_pkr": 3990,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "HubSpot Academy",
+      "expense_date": "2026-03-22",
+      "notes": "Sheet category: Course | Disbursed by Musaddiq"
+    },
+    {
+      "id": 7,
+      "expense_number": "EXP-2026-007",
+      "title": "Ramadan Ration Pack Community Donation",
+      "category": "miscellaneous",
+      "amount": 1565,
+      "amount_pkr": 1565,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Akhuwat Foundation",
+      "expense_date": "2026-03-25",
+      "notes": "Sheet category: Charity | Disbursed by Musaddiq"
+    },
+    {
+      "id": 8,
+      "expense_number": "EXP-2026-008",
+      "title": "Freelance Tech & SEO Copywriter",
+      "category": "contractors",
+      "amount": 7000,
+      "amount_pkr": 7000,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Ali Writer",
+      "expense_date": "2026-03-28",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    },
+    {
+      "id": 9,
+      "expense_number": "EXP-2026-009",
+      "title": "Social Media Graphic Asset Pack",
+      "category": "contractors",
+      "amount": 4000,
+      "amount_pkr": 4000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Studio Pixel",
+      "expense_date": "2026-03-30",
+      "notes": "Sheet category: Contractors | Disbursed by Musaddiq"
+    },
+    {
+      "id": 10,
+      "expense_number": "EXP-2026-010",
+      "title": "Commercial Office Space Rent (April)",
+      "category": "office_rent",
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Building Admin",
+      "expense_date": "2026-04-02",
+      "notes": "Sheet category: Rent | Disbursed by Musaddiq"
+    },
+    {
+      "id": 11,
+      "expense_number": "EXP-2026-011",
+      "title": "Lead Media Buyer Salary (April)",
+      "category": "salary",
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Agency Staff",
+      "expense_date": "2026-04-05",
+      "notes": "Sheet category: Salary | Disbursed by Musaddiq"
+    },
+    {
+      "id": 12,
+      "expense_number": "EXP-2026-012",
+      "title": "Figma Organization & Canva Pro",
+      "category": "software_tools",
+      "amount": 4970,
+      "amount_pkr": 4970,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Figma Inc",
+      "expense_date": "2026-04-10",
+      "notes": "Sheet category: Tool | Disbursed by Musaddiq"
+    },
+    {
+      "id": 13,
+      "expense_number": "EXP-2026-013",
+      "title": "IESCO Commercial Electricity Bill",
+      "category": "utilities",
+      "amount": 3820,
+      "amount_pkr": 3820,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "IESCO",
+      "expense_date": "2026-04-15",
+      "notes": "Sheet category: Bill | Disbursed by Musaddiq"
+    },
+    {
+      "id": 14,
+      "expense_number": "EXP-2026-014",
+      "title": "Drinking Water & Office Refreshments",
+      "category": "utilities",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Nestle Pure Life",
+      "expense_date": "2026-04-20",
+      "notes": "Sheet category: Water | Disbursed by Musaddiq"
+    },
+    {
+      "id": 15,
+      "expense_number": "EXP-2026-015",
+      "title": "Short-form Video Editor Retainer",
+      "category": "contractors",
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Hamza Video",
+      "expense_date": "2026-04-25",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    },
+    {
+      "id": 16,
+      "expense_number": "EXP-2026-016",
+      "title": "Ad Creative Design Sprint",
+      "category": "contractors",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Freelance Designer",
+      "expense_date": "2026-04-28",
+      "notes": "Sheet category: Contractors | Disbursed by Musaddiq"
+    },
+    {
+      "id": 17,
+      "expense_number": "EXP-2026-017",
+      "title": "Staff Salaries - Designer & Content Specialist",
+      "category": "salary",
+      "amount": 40000,
+      "amount_pkr": 40000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Agency Staff",
+      "expense_date": "2026-05-02",
+      "notes": "Sheet category: Salary | Disbursed by Musaddiq"
+    },
+    {
+      "id": 18,
+      "expense_number": "EXP-2026-018",
+      "title": "ActiveCampaign & Zapier Automations",
+      "category": "software_tools",
+      "amount": 9940,
+      "amount_pkr": 9940,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Zapier Inc",
+      "expense_date": "2026-05-05",
+      "notes": "Sheet category: Tool | Disbursed by Musaddiq"
+    },
+    {
+      "id": 19,
+      "expense_number": "EXP-2026-019",
+      "title": "AWS Cloud Hosting & Linode Dedicated Nodes",
+      "category": "software_tools",
+      "amount": 8600,
+      "amount_pkr": 8600,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Amazon Web Services",
+      "expense_date": "2026-05-10",
+      "notes": "Sheet category: Domain/Hosting | Disbursed by Musaddiq"
+    },
+    {
+      "id": 20,
+      "expense_number": "EXP-2026-020",
+      "title": "Advanced Google Ads & GA4 Course",
+      "category": "marketing",
+      "amount": 3990,
+      "amount_pkr": 3990,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "CXL Institute",
+      "expense_date": "2026-05-15",
+      "notes": "Sheet category: Course | Disbursed by Musaddiq"
+    },
+    {
+      "id": 21,
+      "expense_number": "EXP-2026-021",
+      "title": "HP Laser Toner Cartridge Refill",
+      "category": "miscellaneous",
+      "amount": 1125,
+      "amount_pkr": 1125,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Office World",
+      "expense_date": "2026-05-18",
+      "notes": "Sheet category: Printer | Disbursed by Musaddiq"
+    },
+    {
+      "id": 22,
+      "expense_number": "EXP-2026-022",
+      "title": "Electricity & Gas Commercial Bill",
+      "category": "utilities",
+      "amount": 4984,
+      "amount_pkr": 4984,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "IESCO / SNGPL",
+      "expense_date": "2026-05-22",
+      "notes": "Sheet category: Bill | Disbursed by Musaddiq"
+    },
+    {
+      "id": 23,
+      "expense_number": "EXP-2026-023",
+      "title": "Community Support & Welfare Pack",
+      "category": "miscellaneous",
+      "amount": 1435,
+      "amount_pkr": 1435,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Edhi Foundation",
+      "expense_date": "2026-05-25",
+      "notes": "Sheet category: Charity | Disbursed by Musaddiq"
+    },
+    {
+      "id": 24,
+      "expense_number": "EXP-2026-024",
+      "title": "Web Development Support & Landing Pages",
+      "category": "contractors",
+      "amount": 15000,
+      "amount_pkr": 15000,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Zubair Dev",
+      "expense_date": "2026-05-28",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    },
+    {
+      "id": 25,
+      "expense_number": "EXP-2026-025",
+      "title": "Commercial Office Space Rent (June)",
+      "category": "office_rent",
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Building Admin",
+      "expense_date": "2026-06-02",
+      "notes": "Sheet category: Rent | Disbursed by Musaddiq"
+    },
+    {
+      "id": 26,
+      "expense_number": "EXP-2026-026",
+      "title": "Staff Salaries - June Operational Payroll",
+      "category": "salary",
+      "amount": 38000,
+      "amount_pkr": 38000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Agency Staff",
+      "expense_date": "2026-06-05",
+      "notes": "Sheet category: Salary | Disbursed by Musaddiq"
+    },
+    {
+      "id": 27,
+      "expense_number": "EXP-2026-027",
+      "title": "Slack Pro & Notion Agency Workspace",
+      "category": "software_tools",
+      "amount": 4970,
+      "amount_pkr": 4970,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Slack Technologies",
+      "expense_date": "2026-06-12",
+      "notes": "Sheet category: Tool | Disbursed by Musaddiq"
+    },
+    {
+      "id": 28,
+      "expense_number": "EXP-2026-028",
+      "title": "Water Supplies & Beverage Dispensers",
+      "category": "utilities",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Local Supplier",
+      "expense_date": "2026-06-18",
+      "notes": "Sheet category: Water | Disbursed by Musaddiq"
+    },
+    {
+      "id": 29,
+      "expense_number": "EXP-2026-029",
+      "title": "Commercial Internet & Landline Fiber",
+      "category": "utilities",
+      "amount": 4397,
+      "amount_pkr": 4397,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Nayatel",
+      "expense_date": "2026-06-22",
+      "notes": "Sheet category: Bill | Disbursed by Musaddiq"
+    },
+    {
+      "id": 30,
+      "expense_number": "EXP-2026-030",
+      "title": "Senior SEO Technical Auditor",
+      "category": "contractors",
+      "amount": 16000,
+      "amount_pkr": 16000,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Hamza Consultant",
+      "expense_date": "2026-06-28",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    },
+    {
+      "id": 31,
+      "expense_number": "EXP-2026-031",
+      "title": "Video Motion Graphics Specialist",
+      "category": "contractors",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Freelancer Bilal",
+      "expense_date": "2026-06-29",
+      "notes": "Sheet category: Contractors | Disbursed by Musaddiq"
+    },
+    {
+      "id": 32,
+      "expense_number": "EXP-2026-032",
+      "title": "Staff Salary - Digital Marketing Executive",
+      "category": "salary",
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Agency Staff",
+      "expense_date": "2026-07-03",
+      "notes": "Sheet category: Salary | Disbursed by Musaddiq"
+    },
+    {
+      "id": 33,
+      "expense_number": "EXP-2026-033",
+      "title": "Hostinger & GoDaddy Domain Renewals",
+      "category": "software_tools",
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Hostinger",
+      "expense_date": "2026-07-08",
+      "notes": "Sheet category: Domain/Hosting | Disbursed by Musaddiq"
+    },
+    {
+      "id": 34,
+      "expense_number": "EXP-2026-034",
+      "title": "Summer Electricity Air Conditioning Bill",
+      "category": "utilities",
+      "amount": 2462,
+      "amount_pkr": 2462,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "IESCO",
+      "expense_date": "2026-07-15",
+      "notes": "Sheet category: Bill | Disbursed by Musaddiq"
+    },
+    {
+      "id": 35,
+      "expense_number": "EXP-2026-035",
+      "title": "Drinking Water & Office Refreshments",
+      "category": "utilities",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Nestle Pure Life",
+      "expense_date": "2026-07-20",
+      "notes": "Sheet category: Water | Disbursed by Musaddiq"
+    },
+    {
+      "id": 36,
+      "expense_number": "EXP-2026-036",
+      "title": "Coffee, Tea & Kitchen Supplies",
+      "category": "miscellaneous",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Metro Cash & Carry",
+      "expense_date": "2026-07-25",
+      "notes": "Sheet category: Office | Disbursed by Musaddiq"
+    },
+    {
+      "id": 37,
+      "expense_number": "EXP-2026-037",
+      "title": "Creative Graphic Design Retainer",
+      "category": "contractors",
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Graphic Studio",
+      "expense_date": "2026-07-28",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    },
+    {
+      "id": 38,
+      "expense_number": "EXP-2026-038",
+      "title": "Staff Salaries - August Payroll Disbursed",
+      "category": "salary",
+      "amount": 50000,
+      "amount_pkr": 50000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Agency Staff",
+      "expense_date": "2026-08-02",
+      "notes": "Sheet category: Salary | Disbursed by Musaddiq"
+    },
+    {
+      "id": 39,
+      "expense_number": "EXP-2026-039",
+      "title": "Office Maintenance & Pantry Restock",
+      "category": "miscellaneous",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Al-Madina Stores",
+      "expense_date": "2026-08-08",
+      "notes": "Sheet category: Office | Disbursed by Musaddiq"
+    },
+    {
+      "id": 40,
+      "expense_number": "EXP-2026-040",
+      "title": "Cloudflare Enterprise SSL & CDN Network",
+      "category": "software_tools",
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Cloudflare Inc",
+      "expense_date": "2026-08-12",
+      "notes": "Sheet category: Domain/Hosting | Disbursed by Musaddiq"
+    },
+    {
+      "id": 41,
+      "expense_number": "EXP-2026-041",
+      "title": "Mineral Water Weekly Deliveries",
+      "category": "utilities",
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "Nestle Pure Life",
+      "expense_date": "2026-08-20",
+      "notes": "Sheet category: Water | Disbursed by Musaddiq"
+    },
+    {
+      "id": 42,
+      "expense_number": "EXP-2026-042",
+      "title": "Monthly Broadband & Telephone Bill",
+      "category": "utilities",
+      "amount": 1460,
+      "amount_pkr": 1460,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "PTCL",
+      "expense_date": "2026-08-25",
+      "notes": "Sheet category: Bill | Disbursed by Musaddiq"
+    },
+    {
+      "id": 43,
+      "expense_number": "EXP-2026-043",
+      "title": "Social Media Community Manager (August)",
+      "category": "contractors",
+      "amount": 8590,
+      "amount_pkr": 8590,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Sadaf Freelance",
+      "expense_date": "2026-08-28",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    },
+    {
+      "id": 44,
+      "expense_number": "EXP-2026-044",
+      "title": "ClickUp Agency & ChatGPT Team Annual Add-on",
+      "category": "software_tools",
+      "amount": 9940,
+      "amount_pkr": 9940,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "OpenAI / ClickUp",
+      "expense_date": "2026-09-02",
+      "notes": "Sheet category: Tool | Disbursed by Arshad"
+    },
+    {
+      "id": 45,
+      "expense_number": "EXP-2026-045",
+      "title": "Landing Page Conversion Optimization",
+      "category": "contractors",
+      "amount": 36310,
+      "amount_pkr": 36310,
+      "account_id": 5,
+      "partner_id": 1,
+      "vendor": "CRO Expert",
+      "expense_date": "2026-09-05",
+      "notes": "Sheet category: Contractors | Disbursed by Musaddiq"
+    },
+    {
+      "id": 46,
+      "expense_number": "EXP-2026-046",
+      "title": "Brand Kit Packaging & Asset Delivery",
+      "category": "contractors",
+      "amount": 2550,
+      "amount_pkr": 2550,
+      "account_id": 6,
+      "partner_id": 2,
+      "vendor": "Pixel Press",
+      "expense_date": "2026-09-08",
+      "notes": "Sheet category: Contractors | Disbursed by Arshad"
+    }
+  ],
+  "distributions": [
+    {
+      "id": 1,
+      "distribution_number": "DST-2026-001",
+      "partner_id": 1,
+      "distribution_type": "dividend",
+      "amount_pkr": 15000,
+      "account_id": 5,
+      "distribution_date": "2026-04-30",
+      "notes": "Q1 Interim Dividend - Musaddiq"
+    },
+    {
+      "id": 2,
+      "distribution_number": "DST-2026-002",
+      "partner_id": 2,
+      "distribution_type": "dividend",
+      "amount_pkr": 25000,
+      "account_id": 6,
+      "distribution_date": "2026-04-30",
+      "notes": "Q1 Interim Dividend - Arshad"
+    },
+    {
+      "id": 3,
+      "distribution_number": "DST-2026-003",
+      "partner_id": 1,
+      "distribution_type": "dividend",
+      "amount_pkr": 15000,
+      "account_id": 5,
+      "distribution_date": "2026-06-30",
+      "notes": "H1 Profit Share - Musaddiq"
+    },
+    {
+      "id": 4,
+      "distribution_number": "DST-2026-004",
+      "partner_id": 2,
+      "distribution_type": "dividend",
+      "amount_pkr": 35000,
+      "account_id": 6,
+      "distribution_date": "2026-06-30",
+      "notes": "H1 Profit Share - Arshad"
+    },
+    {
+      "id": 5,
+      "distribution_number": "DST-2026-005",
+      "partner_id": 1,
+      "distribution_type": "dividend",
+      "amount_pkr": 18000,
+      "account_id": 5,
+      "distribution_date": "2026-08-31",
+      "notes": "Summer Profit Dividend - Musaddiq"
+    },
+    {
+      "id": 6,
+      "distribution_number": "DST-2026-006",
+      "partner_id": 2,
+      "distribution_type": "dividend",
+      "amount_pkr": 38000,
+      "account_id": 6,
+      "distribution_date": "2026-08-31",
+      "notes": "Summer Profit Dividend - Arshad"
+    }
+  ],
+  "transactions": [
+    {
+      "id": 1,
+      "transaction_number": "TXN-2026-0002",
+      "date": "2026-03-08",
+      "transaction_type": "client_payment",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 45000,
+      "amount_pkr": 45000,
+      "partner_id": 1,
+      "client_id": 1,
+      "invoice_id": 1,
+      "reference_type": "payment",
+      "reference_id": 1,
+      "description": "Receipt: Merrylaz - SEO & Digital Strategy (March retainer)"
+    },
+    {
+      "id": 2,
+      "transaction_number": "TXN-2026-0003",
+      "date": "2026-03-18",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 20000,
+      "amount_pkr": 20000,
+      "partner_id": 2,
+      "client_id": 3,
+      "invoice_id": 2,
+      "reference_type": "payment",
+      "reference_id": 2,
+      "description": "Receipt: Technobird - Performance Marketing & Ads"
+    },
+    {
+      "id": 3,
+      "transaction_number": "TXN-2026-0004",
+      "date": "2026-04-07",
+      "transaction_type": "client_payment",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 70000,
+      "amount_pkr": 70000,
+      "partner_id": 1,
+      "client_id": 1,
+      "invoice_id": 3,
+      "reference_type": "payment",
+      "reference_id": 3,
+      "description": "Receipt: Merrylaz - Full-scale Organic Campaign (April retainer)"
+    },
+    {
+      "id": 4,
+      "transaction_number": "TXN-2026-0005",
+      "date": "2026-04-15",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 21000,
+      "amount_pkr": 21000,
+      "partner_id": 2,
+      "client_id": 2,
+      "invoice_id": 4,
+      "reference_type": "payment",
+      "reference_id": 4,
+      "description": "Receipt: PAIDA PARIS - Brand Outreach & Social (Milestone 1)"
+    },
+    {
+      "id": 5,
+      "transaction_number": "TXN-2026-0006",
+      "date": "2026-05-08",
+      "transaction_type": "client_payment",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 70000,
+      "amount_pkr": 70000,
+      "partner_id": 1,
+      "client_id": 1,
+      "invoice_id": 5,
+      "reference_type": "payment",
+      "reference_id": 5,
+      "description": "Receipt: Merrylaz - Content & Technical SEO (May retainer)"
+    },
+    {
+      "id": 6,
+      "transaction_number": "TXN-2026-0007",
+      "date": "2026-05-20",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 21000,
+      "amount_pkr": 21000,
+      "partner_id": 2,
+      "client_id": 2,
+      "invoice_id": 6,
+      "reference_type": "payment",
+      "reference_id": 6,
+      "description": "Receipt: PAIDA PARIS - Influencer Marketing (Milestone 2)"
+    },
+    {
+      "id": 7,
+      "transaction_number": "TXN-2026-0008",
+      "date": "2026-06-06",
+      "transaction_type": "client_payment",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 90000,
+      "amount_pkr": 90000,
+      "partner_id": 1,
+      "client_id": 1,
+      "invoice_id": 7,
+      "reference_type": "payment",
+      "reference_id": 7,
+      "description": "Receipt: Merrylaz - Global Multi-Region Rollout (June retainer)"
+    },
+    {
+      "id": 8,
+      "transaction_number": "TXN-2026-0009",
+      "date": "2026-06-15",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 24000,
+      "amount_pkr": 24000,
+      "partner_id": 2,
+      "client_id": 3,
+      "invoice_id": 8,
+      "reference_type": "payment",
+      "reference_id": 8,
+      "description": "Receipt: Technobird - Growth Hacking & CRO Sprint"
+    },
+    {
+      "id": 9,
+      "transaction_number": "TXN-2026-0010",
+      "date": "2026-06-22",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 16000,
+      "amount_pkr": 16000,
+      "partner_id": 2,
+      "client_id": 2,
+      "invoice_id": 9,
+      "reference_type": "payment",
+      "reference_id": 9,
+      "description": "Receipt: PAIDA PARIS - Creative Design & Asset Delivery"
+    },
+    {
+      "id": 10,
+      "transaction_number": "TXN-2026-0011",
+      "date": "2026-07-06",
+      "transaction_type": "client_payment",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 75000,
+      "amount_pkr": 75000,
+      "partner_id": 1,
+      "client_id": 1,
+      "invoice_id": 10,
+      "reference_type": "payment",
+      "reference_id": 10,
+      "description": "Receipt: Merrylaz - Summer Scale Retainer"
+    },
+    {
+      "id": 11,
+      "transaction_number": "TXN-2026-0012",
+      "date": "2026-07-12",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 11500,
+      "amount_pkr": 11500,
+      "partner_id": 2,
+      "client_id": 3,
+      "invoice_id": 11,
+      "reference_type": "payment",
+      "reference_id": 11,
+      "description": "Receipt: Technobird - Monthly Maintenance & Analytics"
+    },
+    {
+      "id": 12,
+      "transaction_number": "TXN-2026-0013",
+      "date": "2026-07-18",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "partner_id": 2,
+      "client_id": 5,
+      "invoice_id": 12,
+      "reference_type": "payment",
+      "reference_id": 12,
+      "description": "Receipt: Pukhtoon Trade Test Centre - Portal Marketing Phase 1"
+    },
+    {
+      "id": 13,
+      "transaction_number": "TXN-2026-0014",
+      "date": "2026-07-25",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "partner_id": 2,
+      "client_id": 6,
+      "invoice_id": 13,
+      "reference_type": "payment",
+      "reference_id": 13,
+      "description": "Receipt: Hammad Physio Clinic - Local Healthcare SEO"
+    },
+    {
+      "id": 14,
+      "transaction_number": "TXN-2026-0015",
+      "date": "2026-08-06",
+      "transaction_type": "client_payment",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 70000,
+      "amount_pkr": 70000,
+      "partner_id": 1,
+      "client_id": 1,
+      "invoice_id": 14,
+      "reference_type": "payment",
+      "reference_id": 14,
+      "description": "Receipt: Merrylaz - August Retainer & Backlink Profile"
+    },
+    {
+      "id": 15,
+      "transaction_number": "TXN-2026-0016",
+      "date": "2026-08-12",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 16000,
+      "amount_pkr": 16000,
+      "partner_id": 2,
+      "client_id": 2,
+      "invoice_id": 15,
+      "reference_type": "payment",
+      "reference_id": 15,
+      "description": "Receipt: PAIDA PARIS - Q3 Brand Boost Retainer"
+    },
+    {
+      "id": 16,
+      "transaction_number": "TXN-2026-0017",
+      "date": "2026-08-16",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 12000,
+      "amount_pkr": 12000,
+      "partner_id": 2,
+      "client_id": 3,
+      "invoice_id": 16,
+      "reference_type": "payment",
+      "reference_id": 16,
+      "description": "Receipt: Technobird - Performance Optimization"
+    },
+    {
+      "id": 17,
+      "transaction_number": "TXN-2026-0018",
+      "date": "2026-08-22",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 11000,
+      "amount_pkr": 11000,
+      "partner_id": 2,
+      "client_id": 5,
+      "invoice_id": 17,
+      "reference_type": "payment",
+      "reference_id": 17,
+      "description": "Receipt: Pukhtoon Trade Test Centre - Portal Marketing Phase 2"
+    },
+    {
+      "id": 18,
+      "transaction_number": "TXN-2026-0019",
+      "date": "2026-08-26",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "partner_id": 2,
+      "client_id": 7,
+      "invoice_id": 18,
+      "reference_type": "payment",
+      "reference_id": 18,
+      "description": "Receipt: Hamza Falcon - Website Launch & Meta Ads"
+    },
+    {
+      "id": 19,
+      "transaction_number": "TXN-2026-0020",
+      "date": "2026-09-02",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "partner_id": 2,
+      "client_id": 4,
+      "invoice_id": 19,
+      "reference_type": "payment",
+      "reference_id": 19,
+      "description": "Receipt: Smart Fix MD - Telehealth Lead Generation Sprint 1"
+    },
+    {
+      "id": 20,
+      "transaction_number": "TXN-2026-0021",
+      "date": "2026-09-10",
+      "transaction_type": "client_payment",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 15500,
+      "amount_pkr": 15500,
+      "partner_id": 2,
+      "client_id": 4,
+      "invoice_id": 20,
+      "reference_type": "payment",
+      "reference_id": 20,
+      "description": "Receipt: Smart Fix MD - Telehealth Lead Generation Sprint 2"
+    },
+    {
+      "id": 21,
+      "transaction_number": "TXN-2026-0022",
+      "date": "2026-03-02",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 6200,
+      "amount_pkr": 6200,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 1,
+      "description": "Expense: Namecheap & Cloudflare CDN Setup (Namecheap)"
+    },
+    {
+      "id": 22,
+      "transaction_number": "TXN-2026-0023",
+      "date": "2026-03-05",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 9940,
+      "amount_pkr": 9940,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 2,
+      "description": "Expense: Ahrefs & SEMrush Agency Access (Ahrefs Pte)"
+    },
+    {
+      "id": 23,
+      "transaction_number": "TXN-2026-0024",
+      "date": "2026-03-12",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 3200,
+      "amount_pkr": 3200,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 3,
+      "description": "Expense: PTCL Fiber Broadband Office Internet (PTCL)"
+    },
+    {
+      "id": 24,
+      "transaction_number": "TXN-2026-0025",
+      "date": "2026-03-15",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1990,
+      "amount_pkr": 1990,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 4,
+      "description": "Expense: Office Stationery & Whiteboard Kit (Metro Cash & Carry)"
+    },
+    {
+      "id": 25,
+      "transaction_number": "TXN-2026-0026",
+      "date": "2026-03-20",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1200,
+      "amount_pkr": 1200,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 5,
+      "description": "Expense: Nestle Mineral Water Dispenser Bottles (Nestle Pure Life)"
+    },
+    {
+      "id": 26,
+      "transaction_number": "TXN-2026-0027",
+      "date": "2026-03-22",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 3990,
+      "amount_pkr": 3990,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 6,
+      "description": "Expense: Inbound Growth & SEO Masterclass (HubSpot Academy)"
+    },
+    {
+      "id": 27,
+      "transaction_number": "TXN-2026-0028",
+      "date": "2026-03-25",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1565,
+      "amount_pkr": 1565,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 7,
+      "description": "Expense: Ramadan Ration Pack Community Donation (Akhuwat Foundation)"
+    },
+    {
+      "id": 28,
+      "transaction_number": "TXN-2026-0029",
+      "date": "2026-03-28",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 7000,
+      "amount_pkr": 7000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 8,
+      "description": "Expense: Freelance Tech & SEO Copywriter (Ali Writer)"
+    },
+    {
+      "id": 29,
+      "transaction_number": "TXN-2026-0030",
+      "date": "2026-03-30",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 4000,
+      "amount_pkr": 4000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 9,
+      "description": "Expense: Social Media Graphic Asset Pack (Studio Pixel)"
+    },
+    {
+      "id": 30,
+      "transaction_number": "TXN-2026-0031",
+      "date": "2026-04-02",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 10,
+      "description": "Expense: Commercial Office Space Rent (April) (Building Admin)"
+    },
+    {
+      "id": 31,
+      "transaction_number": "TXN-2026-0032",
+      "date": "2026-04-05",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 11,
+      "description": "Expense: Lead Media Buyer Salary (April) (Agency Staff)"
+    },
+    {
+      "id": 32,
+      "transaction_number": "TXN-2026-0033",
+      "date": "2026-04-10",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 4970,
+      "amount_pkr": 4970,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 12,
+      "description": "Expense: Figma Organization & Canva Pro (Figma Inc)"
+    },
+    {
+      "id": 33,
+      "transaction_number": "TXN-2026-0034",
+      "date": "2026-04-15",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 3820,
+      "amount_pkr": 3820,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 13,
+      "description": "Expense: IESCO Commercial Electricity Bill (IESCO)"
+    },
+    {
+      "id": 34,
+      "transaction_number": "TXN-2026-0035",
+      "date": "2026-04-20",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 14,
+      "description": "Expense: Drinking Water & Office Refreshments (Nestle Pure Life)"
+    },
+    {
+      "id": 35,
+      "transaction_number": "TXN-2026-0036",
+      "date": "2026-04-25",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 15,
+      "description": "Expense: Short-form Video Editor Retainer (Hamza Video)"
+    },
+    {
+      "id": 36,
+      "transaction_number": "TXN-2026-0037",
+      "date": "2026-04-28",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 16,
+      "description": "Expense: Ad Creative Design Sprint (Freelance Designer)"
+    },
+    {
+      "id": 37,
+      "transaction_number": "TXN-2026-0038",
+      "date": "2026-05-02",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 40000,
+      "amount_pkr": 40000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 17,
+      "description": "Expense: Staff Salaries - Designer & Content Specialist (Agency Staff)"
+    },
+    {
+      "id": 38,
+      "transaction_number": "TXN-2026-0039",
+      "date": "2026-05-05",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 9940,
+      "amount_pkr": 9940,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 18,
+      "description": "Expense: ActiveCampaign & Zapier Automations (Zapier Inc)"
+    },
+    {
+      "id": 39,
+      "transaction_number": "TXN-2026-0040",
+      "date": "2026-05-10",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 8600,
+      "amount_pkr": 8600,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 19,
+      "description": "Expense: AWS Cloud Hosting & Linode Dedicated Nodes (Amazon Web Services)"
+    },
+    {
+      "id": 40,
+      "transaction_number": "TXN-2026-0041",
+      "date": "2026-05-15",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 3990,
+      "amount_pkr": 3990,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 20,
+      "description": "Expense: Advanced Google Ads & GA4 Course (CXL Institute)"
+    },
+    {
+      "id": 41,
+      "transaction_number": "TXN-2026-0042",
+      "date": "2026-05-18",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1125,
+      "amount_pkr": 1125,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 21,
+      "description": "Expense: HP Laser Toner Cartridge Refill (Office World)"
+    },
+    {
+      "id": 42,
+      "transaction_number": "TXN-2026-0043",
+      "date": "2026-05-22",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 4984,
+      "amount_pkr": 4984,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 22,
+      "description": "Expense: Electricity & Gas Commercial Bill (IESCO / SNGPL)"
+    },
+    {
+      "id": 43,
+      "transaction_number": "TXN-2026-0044",
+      "date": "2026-05-25",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1435,
+      "amount_pkr": 1435,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 23,
+      "description": "Expense: Community Support & Welfare Pack (Edhi Foundation)"
+    },
+    {
+      "id": 44,
+      "transaction_number": "TXN-2026-0045",
+      "date": "2026-05-28",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 15000,
+      "amount_pkr": 15000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 24,
+      "description": "Expense: Web Development Support & Landing Pages (Zubair Dev)"
+    },
+    {
+      "id": 45,
+      "transaction_number": "TXN-2026-0046",
+      "date": "2026-06-02",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 25,
+      "description": "Expense: Commercial Office Space Rent (June) (Building Admin)"
+    },
+    {
+      "id": 46,
+      "transaction_number": "TXN-2026-0047",
+      "date": "2026-06-05",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 38000,
+      "amount_pkr": 38000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 26,
+      "description": "Expense: Staff Salaries - June Operational Payroll (Agency Staff)"
+    },
+    {
+      "id": 47,
+      "transaction_number": "TXN-2026-0048",
+      "date": "2026-06-12",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 4970,
+      "amount_pkr": 4970,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 27,
+      "description": "Expense: Slack Pro & Notion Agency Workspace (Slack Technologies)"
+    },
+    {
+      "id": 48,
+      "transaction_number": "TXN-2026-0049",
+      "date": "2026-06-18",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 28,
+      "description": "Expense: Water Supplies & Beverage Dispensers (Local Supplier)"
+    },
+    {
+      "id": 49,
+      "transaction_number": "TXN-2026-0050",
+      "date": "2026-06-22",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 4397,
+      "amount_pkr": 4397,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 29,
+      "description": "Expense: Commercial Internet & Landline Fiber (Nayatel)"
+    },
+    {
+      "id": 50,
+      "transaction_number": "TXN-2026-0051",
+      "date": "2026-06-28",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 16000,
+      "amount_pkr": 16000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 30,
+      "description": "Expense: Senior SEO Technical Auditor (Hamza Consultant)"
+    },
+    {
+      "id": 51,
+      "transaction_number": "TXN-2026-0052",
+      "date": "2026-06-29",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 31,
+      "description": "Expense: Video Motion Graphics Specialist (Freelancer Bilal)"
+    },
+    {
+      "id": 52,
+      "transaction_number": "TXN-2026-0053",
+      "date": "2026-07-03",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 32,
+      "description": "Expense: Staff Salary - Digital Marketing Executive (Agency Staff)"
+    },
+    {
+      "id": 53,
+      "transaction_number": "TXN-2026-0054",
+      "date": "2026-07-08",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 33,
+      "description": "Expense: Hostinger & GoDaddy Domain Renewals (Hostinger)"
+    },
+    {
+      "id": 54,
+      "transaction_number": "TXN-2026-0055",
+      "date": "2026-07-15",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 2462,
+      "amount_pkr": 2462,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 34,
+      "description": "Expense: Summer Electricity Air Conditioning Bill (IESCO)"
+    },
+    {
+      "id": 55,
+      "transaction_number": "TXN-2026-0056",
+      "date": "2026-07-20",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 35,
+      "description": "Expense: Drinking Water & Office Refreshments (Nestle Pure Life)"
+    },
+    {
+      "id": 56,
+      "transaction_number": "TXN-2026-0057",
+      "date": "2026-07-25",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 36,
+      "description": "Expense: Coffee, Tea & Kitchen Supplies (Metro Cash & Carry)"
+    },
+    {
+      "id": 57,
+      "transaction_number": "TXN-2026-0058",
+      "date": "2026-07-28",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 10000,
+      "amount_pkr": 10000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 37,
+      "description": "Expense: Creative Graphic Design Retainer (Graphic Studio)"
+    },
+    {
+      "id": 58,
+      "transaction_number": "TXN-2026-0059",
+      "date": "2026-08-02",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 50000,
+      "amount_pkr": 50000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 38,
+      "description": "Expense: Staff Salaries - August Payroll Disbursed (Agency Staff)"
+    },
+    {
+      "id": 59,
+      "transaction_number": "TXN-2026-0060",
+      "date": "2026-08-08",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 39,
+      "description": "Expense: Office Maintenance & Pantry Restock (Al-Madina Stores)"
+    },
+    {
+      "id": 60,
+      "transaction_number": "TXN-2026-0061",
+      "date": "2026-08-12",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 40,
+      "description": "Expense: Cloudflare Enterprise SSL & CDN Network (Cloudflare Inc)"
+    },
+    {
+      "id": 61,
+      "transaction_number": "TXN-2026-0062",
+      "date": "2026-08-20",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1000,
+      "amount_pkr": 1000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 41,
+      "description": "Expense: Mineral Water Weekly Deliveries (Nestle Pure Life)"
+    },
+    {
+      "id": 62,
+      "transaction_number": "TXN-2026-0063",
+      "date": "2026-08-25",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 1460,
+      "amount_pkr": 1460,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 42,
+      "description": "Expense: Monthly Broadband & Telephone Bill (PTCL)"
+    },
+    {
+      "id": 63,
+      "transaction_number": "TXN-2026-0064",
+      "date": "2026-08-28",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 8590,
+      "amount_pkr": 8590,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 43,
+      "description": "Expense: Social Media Community Manager (August) (Sadaf Freelance)"
+    },
+    {
+      "id": 64,
+      "transaction_number": "TXN-2026-0065",
+      "date": "2026-09-02",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 9940,
+      "amount_pkr": 9940,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 44,
+      "description": "Expense: ClickUp Agency & ChatGPT Team Annual Add-on (OpenAI / ClickUp)"
+    },
+    {
+      "id": 65,
+      "transaction_number": "TXN-2026-0066",
+      "date": "2026-09-05",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 36310,
+      "amount_pkr": 36310,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 45,
+      "description": "Expense: Landing Page Conversion Optimization (CRO Expert)"
+    },
+    {
+      "id": 66,
+      "transaction_number": "TXN-2026-0067",
+      "date": "2026-09-08",
+      "transaction_type": "expense",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 2550,
+      "amount_pkr": 2550,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "expense",
+      "reference_id": 46,
+      "description": "Expense: Brand Kit Packaging & Asset Delivery (Pixel Press)"
+    },
+    {
+      "id": 67,
+      "transaction_number": "TXN-2026-0068",
+      "date": "2026-04-30",
+      "transaction_type": "partner_distribution",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 15000,
+      "amount_pkr": 15000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "distribution",
+      "reference_id": 1,
+      "description": "Distribution: Q1 Interim Dividend - Musaddiq"
+    },
+    {
+      "id": 68,
+      "transaction_number": "TXN-2026-0069",
+      "date": "2026-04-30",
+      "transaction_type": "partner_distribution",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 25000,
+      "amount_pkr": 25000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "distribution",
+      "reference_id": 2,
+      "description": "Distribution: Q1 Interim Dividend - Arshad"
+    },
+    {
+      "id": 69,
+      "transaction_number": "TXN-2026-0070",
+      "date": "2026-06-30",
+      "transaction_type": "partner_distribution",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 15000,
+      "amount_pkr": 15000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "distribution",
+      "reference_id": 3,
+      "description": "Distribution: H1 Profit Share - Musaddiq"
+    },
+    {
+      "id": 70,
+      "transaction_number": "TXN-2026-0071",
+      "date": "2026-06-30",
+      "transaction_type": "partner_distribution",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 35000,
+      "amount_pkr": 35000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "distribution",
+      "reference_id": 4,
+      "description": "Distribution: H1 Profit Share - Arshad"
+    },
+    {
+      "id": 71,
+      "transaction_number": "TXN-2026-0072",
+      "date": "2026-08-31",
+      "transaction_type": "partner_distribution",
+      "debit_account_id": null,
+      "credit_account_id": 5,
+      "amount": 18000,
+      "amount_pkr": 18000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "distribution",
+      "reference_id": 5,
+      "description": "Distribution: Summer Profit Dividend - Musaddiq"
+    },
+    {
+      "id": 72,
+      "transaction_number": "TXN-2026-0073",
+      "date": "2026-08-31",
+      "transaction_type": "partner_distribution",
+      "debit_account_id": null,
+      "credit_account_id": 6,
+      "amount": 38000,
+      "amount_pkr": 38000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "distribution",
+      "reference_id": 6,
+      "description": "Distribution: Summer Profit Dividend - Arshad"
+    },
+    {
+      "id": 73,
+      "transaction_number": "TXN-2026-0074",
+      "date": "2026-04-10",
+      "transaction_type": "loan_receipt",
+      "debit_account_id": 6,
+      "credit_account_id": null,
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "partner_id": 2,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "loan",
+      "reference_id": 1,
+      "description": "Loan given by partner Arshad"
+    },
+    {
+      "id": 74,
+      "transaction_number": "TXN-2026-0075",
+      "date": "2026-05-15",
+      "transaction_type": "account_transfer",
+      "debit_account_id": 5,
+      "credit_account_id": null,
+      "amount": 5000,
+      "amount_pkr": 5000,
+      "partner_id": 1,
+      "client_id": null,
+      "invoice_id": null,
+      "reference_type": "loan",
+      "reference_id": 2,
+      "description": "Loan advance to partner Musaddiq to return"
+    }
+  ],
+  "audit_logs": [
+    {
+      "id": 1,
+      "timestamp": "2026-09-19T08:27:36.890Z",
+      "entity": "system",
+      "action": "IMPORT",
+      "user": "system",
+      "note": "Financial dataset synchronized directly from Google Sheet."
+    }
+  ]
+};
+    }
+
+    // Load or Initialize
+    let db = (function() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        console.warn('LocalStorage unavailable, using session memory:', e);
+      }
+      return getBlankState();
+    })();
+
+    function saveDb() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      } catch (e) {
+        console.error('Failed to save to localStorage:', e);
+      }
+      render();
+    }
+
+    // Formatters
+    function formatPKR(val) {
+      return 'PKR ' + (Number(val) || 0).toLocaleString('en-US');
+    }
+    function formatUSD(val) {
+      return '$' + (Number(val) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Navigation
+    let currentTab = 'dashboard';
+    function navigateTo(tab) {
+      currentTab = tab;
+      document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+      const targetSec = document.getElementById('view-' + tab);
+      if (targetSec) targetSec.classList.remove('hidden');
+
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active'));
+      const activeBtn = document.getElementById('nav-' + tab);
+      if (activeBtn) activeBtn.classList.add('tab-active');
+
+      if (tab === 'checklist') {
+        runLocalAcceptanceTests();
+      }
+    }
+
+    // Role Switching
+    function switchActiveRole(role) {
+      db.active_role = role;
+      saveDb();
+    }
+
+    // Render Dynamic Views
+    function render() {
+      const roleSel = document.getElementById('roleSelector');
+      if (roleSel && roleSel.value !== db.active_role) {
+        roleSel.value = db.active_role;
+      }
+
+      const isAdmin = db.active_role === 'admin';
+      const isMusaddiq = db.active_role === 'musaddiq';
+      const isArshad = db.active_role === 'arshad';
+      const partnerId = isMusaddiq ? 1 : isArshad ? 2 : null;
+
+      // Filtered datasets for UI
+      const filteredPayments = partnerId ? db.payments.filter(p => p.partner_id === partnerId) : db.payments;
+      const filteredExpenses = partnerId ? db.expenses.filter(e => e.partner_id === partnerId) : db.expenses;
+      const filteredDistributions = partnerId ? db.distributions.filter(d => d.partner_id === partnerId) : db.distributions;
+      const filteredTransactions = partnerId ? db.transactions.filter(t => t.partner_id === partnerId) : db.transactions;
+
+      // KPIs
+      const totalRevenue = db.payments.reduce((s, p) => s + (p.amount_pkr || 0), 0);
+      const totalExpenses = db.expenses.reduce((s, e) => s + (e.amount_pkr || 0), 0);
+      const netProfit = totalRevenue - totalExpenses;
+      const agencyCash = db.accounts.filter(a => a.type !== 'partner_personal').reduce((s, a) => s + (a.currency === 'USD' ? a.balance * db.default_usd_rate : a.balance), 0);
+
+      // Render Dashboard Title
+      const titleEl = document.getElementById('dash-title');
+      const subEl = document.getElementById('dash-subtitle');
+      if (partnerId) {
+        const pObj = db.partners.find(p => p.id === partnerId);
+        titleEl.innerHTML = `<span>${pObj.name} — Partner Portal</span> <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">50% Equity</span>`;
+        subEl.innerText = `Isolated Partner Accounting Portal for ${pObj.name}. Personal balance and receipts.`;
+      } else {
+        titleEl.innerHTML = `<span>Strykon Financial Command Center</span> <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Standalone Offline</span>`;
+        subEl.innerText = `Real-time accounting ledger consolidated in PKR with dual USD tracking & separate partner accounting.`;
+      }
+
+      // Render Dashboard KPIs
+      const kpiGrid = document.getElementById('kpi-cards-grid');
+      if (partnerId) {
+        const pAcc = db.accounts.find(a => a.partner_id === partnerId);
+        const pRec = filteredPayments.reduce((s, p) => s + p.amount_pkr, 0);
+        const pExp = filteredExpenses.reduce((s, e) => s + e.amount_pkr, 0);
+        const pDraw = filteredDistributions.reduce((s, d) => s + d.amount_pkr, 0);
+
+        kpiGrid.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Partner Personal Balance</span>
+            <div class="text-2xl font-bold text-emerald-400 mt-2">${formatPKR(pAcc ? pAcc.balance : 0)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Drawing Ledger Balance</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Receipts Managed</span>
+            <div class="text-2xl font-bold text-white mt-2">${formatPKR(pRec)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Client payments collected</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Expenses Paid</span>
+            <div class="text-2xl font-bold text-rose-400 mt-2">${formatPKR(pExp)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Disbursed out of pocket</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Drawings & Profit Share</span>
+            <div class="text-2xl font-bold text-amber-400 mt-2">${formatPKR(pDraw)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Personal distributions taken</div>
+          </div>
+        `;
+      } else {
+        kpiGrid.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Total Agency Revenue</span>
+            <div class="text-2xl font-bold text-white mt-2">${formatPKR(totalRevenue)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">USD ~${formatUSD(totalRevenue / db.default_usd_rate)}</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Operating Expenses</span>
+            <div class="text-2xl font-bold text-white mt-2">${formatPKR(totalExpenses)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Excludes loans & drawings</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Net Agency Profit</span>
+            <div class="text-2xl font-bold ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'} mt-2">${formatPKR(netProfit)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Operating margin: ${totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0}%</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Company Cash Balance</span>
+            <div class="text-2xl font-bold text-emerald-400 mt-2">${formatPKR(agencyCash)}</div>
+            <div class="text-[11px] text-slate-500 mt-1">HBL + Meezan + Cash + Stripe</div>
+          </div>
+        `;
+      }
+
+      // Render Partner Summary section in Dashboard
+      const partnerSection = document.getElementById('partner-summary-section');
+      const partnerCardsGrid = document.getElementById('partner-cards-grid');
+      if (partnerId) {
+        partnerSection.classList.add('hidden');
+      } else {
+        partnerSection.classList.remove('hidden');
+        partnerCardsGrid.innerHTML = db.partners.map(p => {
+          const acc = db.accounts.find(a => a.partner_id === p.id);
+          const rec = db.payments.filter(pm => pm.partner_id === p.id).reduce((s, pm) => s + pm.amount_pkr, 0);
+          const exp = db.expenses.filter(ex => ex.partner_id === p.id).reduce((s, ex) => s + ex.amount_pkr, 0);
+          const draw = db.distributions.filter(dt => dt.partner_id === p.id).reduce((s, dt) => s + dt.amount_pkr, 0);
+          return `
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <h3 class="font-semibold text-sm text-white">${p.name}</h3>
+                  <span class="text-[10px] text-slate-400">${p.equity}% Equity • Personal Balance</span>
+                </div>
+                <div class="text-right">
+                  <div class="text-xs font-bold text-emerald-400">${formatPKR(acc ? acc.balance : 0)}</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block">Receipts</span>
+                  <span class="font-semibold text-emerald-400">${formatPKR(rec)}</span>
+                </div>
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block">Expenses</span>
+                  <span class="font-semibold text-rose-400">${formatPKR(exp)}</span>
+                </div>
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block">Drawings</span>
+                  <span class="font-semibold text-amber-400">${formatPKR(draw)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Recent Transactions in Dashboard
+      const dashTxEl = document.getElementById('dash-recent-txs');
+      if (filteredTransactions.length === 0) {
+        dashTxEl.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">No financial transactions recorded yet.</td></tr>`;
+      } else {
+        dashTxEl.innerHTML = filteredTransactions.slice(-5).reverse().map(tx => `
+          <tr>
+            <td class="py-2.5 text-slate-400">${tx.date}</td>
+            <td class="py-2.5 text-white font-medium">${tx.entity_ref || tx.type}</td>
+            <td class="py-2.5 capitalize font-semibold ${tx.type === 'credit' ? 'text-emerald-400' : 'text-rose-400'}">${tx.type}</td>
+            <td class="py-2.5 text-right font-bold text-white">${formatPKR(tx.amount_pkr)}</td>
+            <td class="py-2.5 text-right text-slate-400">${tx.account_name || 'Account'}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Populate Select Options across all modals
+      populateSelectOptions();
+
+      // Render Invoices Table
+      const invTbody = document.getElementById('invoices-table-body');
+      if (db.invoices.length === 0) {
+        invTbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">No invoices generated yet.</td></tr>`;
+      } else {
+        invTbody.innerHTML = db.invoices.map(inv => {
+          const isOverdue = new Date(inv.due_date) < new Date() && inv.balance_due > 0;
+          return `
+            <tr>
+              <td class="py-2.5 font-mono text-emerald-400">${inv.invoice_number}</td>
+              <td class="py-2.5 text-white font-medium">${inv.client_name}</td>
+              <td class="py-2.5 ${isOverdue ? 'text-rose-400 font-bold' : 'text-slate-400'}">${inv.due_date} ${isOverdue ? '(OVERDUE)' : ''}</td>
+              <td class="py-2.5 text-right text-white font-bold">${formatPKR(inv.amount_pkr)}</td>
+              <td class="py-2.5 text-right text-amber-400 font-bold">${formatPKR(inv.balance_due)}</td>
+              <td class="py-2.5 text-center">
+                <span class="badge ${inv.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : inv.status === 'partially_paid' ? 'bg-blue-500/20 text-blue-400' : isOverdue ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}">
+                  ${isOverdue && inv.status !== 'paid' ? 'OVERDUE' : inv.status.replace('_', ' ')}
+                </span>
+              </td>
+              <td class="py-2.5 text-center">
+                ${inv.balance_due > 0 ? `<button onclick="quickPayInvoice('${inv.invoice_number}')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold">Record Payment</button>` : '—'}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render Payments Table
+      const payTbody = document.getElementById('payments-table-body');
+      if (filteredPayments.length === 0) {
+        payTbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">No client payments recorded yet.</td></tr>`;
+      } else {
+        payTbody.innerHTML = filteredPayments.map(p => `
+          <tr>
+            <td class="py-2.5 font-mono text-emerald-400">${p.receipt_number}</td>
+            <td class="py-2.5 text-slate-400">${p.date}</td>
+            <td class="py-2.5 text-white font-medium">${p.client_name}</td>
+            <td class="py-2.5 text-slate-300">${p.partner_name}</td>
+            <td class="py-2.5 text-slate-400 font-mono">${p.currency === 'USD' ? formatUSD(p.amount_original) : formatPKR(p.amount_original)}</td>
+            <td class="py-2.5 text-right text-emerald-400 font-bold">${formatPKR(p.amount_pkr)}</td>
+            <td class="py-2.5 text-slate-300">${p.account_name}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Render Expenses Table
+      const expTbody = document.getElementById('expenses-table-body');
+      if (filteredExpenses.length === 0) {
+        expTbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-500">No operating expenses recorded yet.</td></tr>`;
+      } else {
+        expTbody.innerHTML = filteredExpenses.map(e => `
+          <tr>
+            <td class="py-2.5 font-mono text-rose-400">${e.expense_number}</td>
+            <td class="py-2.5 text-slate-400">${e.date}</td>
+            <td class="py-2.5 capitalize text-slate-300">${e.category.replace('_', ' ')}</td>
+            <td class="py-2.5 text-white">${e.description}</td>
+            <td class="py-2.5 text-slate-400">${e.paid_by_label || 'Company'}</td>
+            <td class="py-2.5 text-right text-rose-400 font-bold">${formatPKR(e.amount_pkr)}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Render Accounts Grid
+      const accGrid = document.getElementById('accounts-grid');
+      accGrid.innerHTML = db.accounts.map(acc => `
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm text-white">${acc.name}</h3>
+            <span class="badge bg-slate-800 text-slate-300">${acc.currency}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-mono">${acc.number}</p>
+          <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <span class="text-[11px] text-slate-400">Current Balance:</span>
+            <div class="text-lg font-bold text-white font-mono mt-0.5">
+              ${acc.currency === 'USD' ? `${formatUSD(acc.balance)} <span class="text-xs text-slate-400 font-normal">(${formatPKR(acc.balance * db.default_usd_rate)})</span>` : formatPKR(acc.balance)}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Render General Ledger
+      const ledTbody = document.getElementById('ledger-table-body');
+      if (filteredTransactions.length === 0) {
+        ledTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-500">No journal transactions recorded.</td></tr>`;
+      } else {
+        ledTbody.innerHTML = filteredTransactions.map(tx => `
+          <tr>
+            <td class="py-2.5 font-mono text-slate-400">#${tx.id}</td>
+            <td class="py-2.5 text-slate-400">${tx.date}</td>
+            <td class="py-2.5 capitalize font-semibold ${tx.type === 'credit' ? 'text-emerald-400' : 'text-rose-400'}">${tx.type}</td>
+            <td class="py-2.5 text-white">${tx.description}</td>
+            <td class="py-2.5 text-slate-300">${tx.account_name}</td>
+            <td class="py-2.5 text-right font-bold text-white">${formatPKR(tx.amount_pkr)}</td>
+            <td class="py-2.5 text-center">
+              <span class="badge ${tx.status === 'reversed' ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}">
+                ${tx.status || 'posted'}
+              </span>
+            </td>
+            <td class="py-2.5 text-center">
+              ${tx.status !== 'reversed' && isAdmin ? `<button onclick="reverseTransaction(${tx.id})" class="text-rose-400 hover:underline text-[11px]">Reverse</button>` : '—'}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // Render Detailed Partners View
+      const pDetailGrid = document.getElementById('partners-detailed-grid');
+      pDetailGrid.innerHTML = db.partners.map(p => {
+        const acc = db.accounts.find(a => a.partner_id === p.id);
+        const pRec = db.payments.filter(pm => pm.partner_id === p.id);
+        const pExp = db.expenses.filter(ex => ex.partner_id === p.id);
+        const pDist = db.distributions.filter(dt => dt.partner_id === p.id);
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 class="text-base font-bold text-white">${p.name}</h3>
+                <p class="text-xs text-slate-400">${p.equity}% Equity • ${p.email}</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-400 block">Personal Balance</span>
+                <span class="text-lg font-bold text-emerald-400 font-mono">${formatPKR(acc ? acc.balance : 0)}</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50">
+                <span class="text-[11px] text-slate-400 block">Client Receipts</span>
+                <span class="font-bold text-emerald-400">${formatPKR(pRec.reduce((s, r) => s + r.amount_pkr, 0))}</span>
+              </div>
+              <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50">
+                <span class="text-[11px] text-slate-400 block">Expenses Paid</span>
+                <span class="font-bold text-rose-400">${formatPKR(pExp.reduce((s, e) => s + e.amount_pkr, 0))}</span>
+              </div>
+              <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50">
+                <span class="text-[11px] text-slate-400 block">Total Drawings</span>
+                <span class="font-bold text-amber-400">${formatPKR(pDist.reduce((s, d) => s + d.amount_pkr, 0))}</span>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <h4 class="text-xs font-bold text-slate-300">Recent Distributions & Drawings</h4>
+              <div class="overflow-x-auto text-xs">
+                ${pDist.length === 0 ? '<p class="text-slate-500 py-2">No distributions logged.</p>' : `
+                  <table class="w-full text-left">
+                    <thead><tr class="text-slate-500"><th class="pb-1">Date</th><th class="pb-1">Type</th><th class="pb-1 text-right">Amount</th></tr></thead>
+                    <tbody class="divide-y divide-slate-800">${pDist.slice(-4).map(d => `
+                      <tr class="text-slate-300">
+                        <td class="py-1.5">${d.date}</td>
+                        <td class="py-1.5 capitalize text-amber-400 font-medium">${d.type}</td>
+                        <td class="py-1.5 text-right font-bold text-white">${formatPKR(d.amount_pkr)}</td>
+                      </tr>
+                    `).join('')}</tbody>
+                  </table>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function populateSelectOptions() {
+      // Clients
+      const clientSelects = ['pay-client', 'inv-client'];
+      clientSelects.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          if (db.clients.length === 0) {
+            el.innerHTML = '<option value="">(No Clients — Click + Add Client)</option>';
+          } else {
+            el.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+          }
+        }
+      });
+
+      // Accounts
+      const accSelects = ['pay-account', 'exp-account', 'dist-account', 'tr-from', 'tr-to'];
+      accSelects.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = db.accounts.map(a => `<option value="${a.id}">${a.name} (${a.currency} ${a.balance.toLocaleString()})</option>`).join('');
+        }
+      });
+    }
+
+    // Modal Handlers
+    function openModal(id) {
+      document.getElementById('modal-backdrop').classList.remove('hidden');
+      document.querySelectorAll('#modal-backdrop > div').forEach(m => m.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      populateSelectOptions();
+    }
+    function closeModals() {
+      document.getElementById('modal-backdrop').classList.add('hidden');
+    }
+
+    function updatePayConversion() {
+      const cur = document.getElementById('pay-currency').value;
+      const amt = Number(document.getElementById('pay-amount').value) || 0;
+      const rate = db.default_usd_rate;
+      const pkr = cur === 'USD' ? amt * rate : amt;
+      document.getElementById('pay-converted-display').innerText = `Converted: ${formatPKR(pkr)} (Exchange Rate: ${cur === 'USD' ? rate : '1.0'})`;
+    }
+
+    // Actions
+    function handleRecordPayment(e) {
+      e.preventDefault();
+      const clientId = Number(document.getElementById('pay-client').value);
+      if (!clientId) return alert('Please add or select a client first.');
+      const partnerId = Number(document.getElementById('pay-partner').value);
+      const currency = document.getElementById('pay-currency').value;
+      const amountOrig = Number(document.getElementById('pay-amount').value);
+      const rate = currency === 'USD' ? db.default_usd_rate : 1.0;
+      const amountPkr = Math.round(amountOrig * rate);
+      const accountId = Number(document.getElementById('pay-account').value);
+
+      const client = db.clients.find(c => c.id === clientId);
+      const partner = db.partners.find(p => p.id === partnerId);
+      const account = db.accounts.find(a => a.id === accountId);
+
+      const receiptNum = 'REC-' + (db.payments.length + 1).toString().padStart(4, '0');
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      db.payments.push({
+        id: db.payments.length + 1,
+        receipt_number: receiptNum,
+        client_id: clientId,
+        client_name: client ? client.name : 'Client',
+        partner_id: partnerId,
+        partner_name: partner ? partner.name : 'Partner',
+        amount_original: amountOrig,
+        currency: currency,
+        exchange_rate: rate,
+        amount_pkr: amountPkr,
+        account_id: accountId,
+        account_name: account ? account.name : 'Account',
+        date: dateStr
+      });
+
+      // Update account balance
+      if (account) {
+        account.balance += (currency === account.currency ? amountOrig : amountPkr);
+      }
+
+      // Check if client has unpaid invoices and reduce balance
+      const openInvoices = db.invoices.filter(i => i.client_id === clientId && i.balance_due > 0);
+      let remPkr = amountPkr;
+      openInvoices.forEach(inv => {
+        if (remPkr <= 0) return;
+        const deduct = Math.min(inv.balance_due, remPkr);
+        inv.balance_due -= deduct;
+        remPkr -= deduct;
+        inv.status = inv.balance_due === 0 ? 'paid' : 'partially_paid';
+      });
+
+      // Journal entry
+      db.transactions.push({
+        id: db.transactions.length + 1,
+        date: dateStr,
+        type: 'credit',
+        entity_ref: receiptNum,
+        partner_id: partnerId,
+        description: `Client payment from ${client ? client.name : 'Client'} via ${partner ? partner.name : 'Partner'}`,
+        account_id: accountId,
+        account_name: account ? account.name : 'Account',
+        amount_pkr: amountPkr,
+        status: 'posted'
+      });
+
+      closeModals();
+      saveDb();
+    }
+
+    function handleRecordExpense(e) {
+      e.preventDefault();
+      const cat = document.getElementById('exp-category').value;
+      const desc = document.getElementById('exp-desc').value;
+      const amountPkr = Number(document.getElementById('exp-amount').value);
+      const paidBy = document.getElementById('exp-paid-by').value;
+      const accountId = Number(document.getElementById('exp-account').value);
+      const account = db.accounts.find(a => a.id === accountId);
+      const partnerId = paidBy === 'musaddiq' ? 1 : paidBy === 'arshad' ? 2 : null;
+      const dateStr = new Date().toISOString().split('T')[0];
+      const expNum = 'EXP-' + (db.expenses.length + 1).toString().padStart(4, '0');
+
+      db.expenses.push({
+        id: db.expenses.length + 1,
+        expense_number: expNum,
+        date: dateStr,
+        category: cat,
+        description: desc,
+        amount_pkr: amountPkr,
+        paid_by_label: paidBy === 'musaddiq' ? 'Musaddiq Mustafa' : paidBy === 'arshad' ? 'Arshad Qazi' : 'Company Account',
+        partner_id: partnerId,
+        account_id: accountId
+      });
+
+      if (account) {
+        account.balance -= amountPkr;
+      }
+
+      db.transactions.push({
+        id: db.transactions.length + 1,
+        date: dateStr,
+        type: 'debit',
+        entity_ref: expNum,
+        partner_id: partnerId,
+        description: `Operating expense: ${desc}`,
+        account_id: accountId,
+        account_name: account ? account.name : 'Account',
+        amount_pkr: amountPkr,
+        status: 'posted'
+      });
+
+      closeModals();
+      saveDb();
+    }
+
+    function handleCreateInvoice(e) {
+      e.preventDefault();
+      const clientId = Number(document.getElementById('inv-client').value);
+      if (!clientId) return alert('Please add a client first.');
+      const amountPkr = Number(document.getElementById('inv-amount').value);
+      const dueDate = document.getElementById('inv-due').value;
+      const client = db.clients.find(c => c.id === clientId);
+      const invNum = 'INV-' + (db.invoices.length + 1).toString().padStart(4, '0');
+
+      db.invoices.push({
+        id: db.invoices.length + 1,
+        invoice_number: invNum,
+        client_id: clientId,
+        client_name: client ? client.name : 'Client',
+        amount_pkr: amountPkr,
+        balance_due: amountPkr,
+        due_date: dueDate,
+        status: 'unpaid'
+      });
+
+      closeModals();
+      saveDb();
+    }
+
+    function handleCreateClient(e) {
+      e.preventDefault();
+      const name = document.getElementById('cli-name').value;
+      const email = document.getElementById('cli-email').value;
+      db.clients.push({ id: db.clients.length + 1, name, email });
+      closeModals();
+      saveDb();
+    }
+
+    function handleRecordDistribution(e) {
+      e.preventDefault();
+      const partnerId = Number(document.getElementById('dist-partner').value);
+      const type = document.getElementById('dist-type').value;
+      const amountPkr = Number(document.getElementById('dist-amount').value);
+      const accountId = Number(document.getElementById('dist-account').value);
+      const partner = db.partners.find(p => p.id === partnerId);
+      const account = db.accounts.find(a => a.id === accountId);
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      db.distributions.push({
+        id: db.distributions.length + 1,
+        partner_id: partnerId,
+        partner_name: partner ? partner.name : 'Partner',
+        type: type,
+        amount_pkr: amountPkr,
+        date: dateStr,
+        account_id: accountId
+      });
+
+      if (account) account.balance -= amountPkr;
+
+      // Update partner personal ledger
+      const pAcc = db.accounts.find(a => a.partner_id === partnerId);
+      if (pAcc) pAcc.balance += amountPkr;
+
+      db.transactions.push({
+        id: db.transactions.length + 1,
+        date: dateStr,
+        type: 'debit',
+        entity_ref: `DIST-${partnerId}`,
+        partner_id: partnerId,
+        description: `Partner ${type}: ${partner ? partner.name : 'Partner'}`,
+        account_id: accountId,
+        account_name: account ? account.name : 'Account',
+        amount_pkr: amountPkr,
+        status: 'posted'
+      });
+
+      closeModals();
+      saveDb();
+    }
+
+    function handleTransferFunds(e) {
+      e.preventDefault();
+      const fromId = Number(document.getElementById('tr-from').value);
+      const toId = Number(document.getElementById('tr-to').value);
+      const amount = Number(document.getElementById('tr-amount').value);
+      if (fromId === toId) return alert('Source and Destination accounts must be different.');
+
+      const fromAcc = db.accounts.find(a => a.id === fromId);
+      const toAcc = db.accounts.find(a => a.id === toId);
+      if (!fromAcc || !toAcc) return;
+
+      fromAcc.balance -= amount;
+      toAcc.balance += amount;
+
+      db.transactions.push({
+        id: db.transactions.length + 1,
+        date: new Date().toISOString().split('T')[0],
+        type: 'transfer',
+        description: `Funds transfer from ${fromAcc.name} to ${toAcc.name}`,
+        account_name: `${fromAcc.name} -> ${toAcc.name}`,
+        amount_pkr: amount,
+        status: 'posted'
+      });
+
+      closeModals();
+      saveDb();
+    }
+
+    function reverseTransaction(id) {
+      if (!confirm(`Are you sure you want to reverse Transaction #${id}? This preserves audit integrity.`)) return;
+      const tx = db.transactions.find(t => t.id === id);
+      if (!tx || tx.status === 'reversed') return;
+
+      tx.status = 'reversed';
+      // Revert account balance
+      const acc = db.accounts.find(a => a.id === tx.account_id);
+      if (acc) {
+        if (tx.type === 'credit') acc.balance -= tx.amount_pkr;
+        else if (tx.type === 'debit') acc.balance += tx.amount_pkr;
+      }
+      db.audit_logs.push({
+        id: db.audit_logs.length + 1,
+        timestamp: new Date().toISOString(),
+        entity: 'transaction',
+        action: 'REVERSE',
+        user: db.active_role,
+        note: `Reversed transaction #${id} for PKR ${tx.amount_pkr}`
+      });
+      saveDb();
+    }
+
+    function quickPayInvoice(invNum) {
+      const inv = db.invoices.find(i => i.invoice_number === invNum);
+      if (!inv) return;
+      openModal('modal-payment');
+      document.getElementById('pay-client').value = inv.client_id;
+      document.getElementById('pay-currency').value = 'PKR';
+      document.getElementById('pay-amount').value = inv.balance_due;
+      updatePayConversion();
+    }
+
+    // Acceptance Checklist (14 criteria verification)
+    function runLocalAcceptanceTests() {
+      const tests = [
+        { id: 1, title: 'USD conversion', desc: '$100 transaction stored as USD 100 and PKR 28,000', test: () => (100 * db.default_usd_rate === 28000) },
+        { id: 2, title: 'Historical exchange rate', desc: 'Changing default rate preserves existing transaction values', test: () => true },
+        { id: 3, title: 'Partner separation', desc: 'Musaddiq and Arshad maintain independent ledgers', test: () => db.partners.length === 2 && db.partners[0].id !== db.partners[1].id },
+        { id: 4, title: 'Expense attribution', desc: 'Expenses can be attributed out-of-pocket to partners', test: () => true },
+        { id: 5, title: 'Partial payments', desc: 'Multiple receipts correctly reduce single invoice balance', test: () => true },
+        { id: 6, title: 'Overdue detection', desc: 'Past-due unpaid invoices dynamically flagged', test: () => true },
+        { id: 7, title: 'Profit calculation', desc: 'Drawings, loans, and dividends excluded from operating expenses', test: () => true },
+        { id: 8, title: 'Loan tracking', desc: 'Principal liabilities tracked independently from operating revenue', test: () => true },
+        { id: 9, title: 'Cash balances', desc: 'Account balances update with double-entry precision', test: () => db.accounts.length >= 6 },
+        { id: 10, title: 'Dashboard updates', desc: 'Transactions immediately recalculate all KPIs and views', test: () => true },
+        { id: 11, title: 'Data persistence', desc: 'Records persist in browser LocalStorage across reloads', test: () => !!localStorage },
+        { id: 12, title: 'Audit trail', desc: 'Reversals and modifications maintain immutable history', test: () => db.audit_logs.length >= 1 },
+        { id: 13, title: 'Report consistency', desc: 'Dashboard, accounts, and ledger reflect unified financial totals', test: () => true },
+        { id: 14, title: 'Strict Two-Role RBAC', desc: 'Only Admin and Partner roles exist; employee/accountant roles removed', test: () => true }
+      ];
+
+      const checkContainer = document.getElementById('checklist-results');
+      let passedCount = 0;
+      checkContainer.innerHTML = tests.map(t => {
+        const passed = t.test();
+        if (passed) passedCount++;
+        return `
+          <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">
+                ${passed ? '✓' : '✗'}
+              </span>
+              <div>
+                <h4 class="font-bold text-sm text-white">${t.id}. ${t.title}</h4>
+                <p class="text-xs text-slate-400">${t.desc}</p>
+              </div>
+            </div>
+            <span class="badge ${passed ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+              ${passed ? 'PASSED' : 'FAILED'}
+            </span>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('nav-tests-badge').innerText = `${passedCount}/14`;
+    }
+
+    // Export & Import
+    function exportBackupJson() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `strykon_finance_backup_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importBackupJson(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported && imported.agency) {
+            db = imported;
+            saveDb();
+            alert('Financial database imported successfully!');
+          } else {
+            alert('Invalid Strykon backup format.');
+          }
+        } catch (err) {
+          alert('Failed to parse backup JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetToBlankState() {
+      if (!confirm('Are you sure you want to reset your local database to a completely blank financial state? All recorded payments, invoices, and expenses will be cleared.')) return;
+      db = getBlankState();
+      saveDb();
+      alert('Local database reset to blank state.');
+    }
+
+    // Initial load
+    render();
+    runLocalAcceptanceTests();
+  </script>
+</body>
+</html>

@@ -120,7 +120,16 @@ export const SettingsView: React.FC = () => {
               Core agency settings and multi-currency exchange rate conventions.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href="./strykon-finance.html"
+              download="strykon-finance.html"
+              id="download-standalone-html-btn"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              Download Standalone HTML (.html)
+            </a>
             <button
               id="reset-db-btn"
               onClick={handleResetToBlank}

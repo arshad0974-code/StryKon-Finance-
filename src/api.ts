@@ -3,6 +3,7 @@ import {
   Employee, Payroll, Loan, LoanTransaction, PartnerDistribution, Transaction,
   NotificationItem, AuditLog, DashboardData, AcceptanceTestResult
 } from './types';
+import { handleClientRequest } from './clientStore';
 
 let currentUserRole = 'admin';
 let currentUsername = 'admin';
@@ -13,28 +14,40 @@ export function setApiAuth(role: string, username: string) {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers || {});
-  headers.set('Content-Type', 'application/json');
-  headers.set('x-user-role', currentUserRole);
-  headers.set('x-username', currentUsername);
+  const isStaticHost = typeof window !== 'undefined' && (
+    window.location.hostname.endsWith('github.io') ||
+    window.location.protocol === 'file:'
+  );
 
-  const response = await fetch(`/api${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const customApiBase = (import.meta.env.VITE_API_BASE_URL as string) || '';
 
-  if (!response.ok) {
-    let errorMsg = `API Error ${response.status}: ${response.statusText}`;
+  // If running in standard full-stack container/server environment or configured with external API URL
+  if (!isStaticHost || customApiBase) {
     try {
-      const errorJson = await response.json();
-      if (errorJson.error) errorMsg = errorJson.error;
+      const headers = new Headers(options.headers || {});
+      headers.set('Content-Type', 'application/json');
+      headers.set('x-user-role', currentUserRole);
+      headers.set('x-username', currentUsername);
+
+      const targetUrl = customApiBase ? `${customApiBase}/api${endpoint}` : `/api${endpoint}`;
+      const response = await fetch(targetUrl, {
+        ...options,
+        headers,
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          return await response.json();
+        }
+      }
     } catch {
-      // ignore json parse error
+      // Backend unavailable; fallback to client store
     }
-    throw new Error(errorMsg);
   }
 
-  return response.json();
+  // Client-side execution mode for GitHub Pages and offline static access
+  return handleClientRequest<T>(endpoint, options, currentUserRole, currentUsername);
 }
 
 export const api = {
