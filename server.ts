@@ -1,9 +1,8 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { initDb, queryOne } from './server/db.js';
+import { initDb } from './server/db.js';
 import { apiRouter } from './server/api.js';
-import { seedFinancialDataFromSheet } from './server/seed_from_sheet.js';
 
 async function startServer() {
   const app = express();
@@ -16,19 +15,7 @@ async function startServer() {
   // Initialize Relational Database
   console.log('Initializing Strykon Relational Database...');
   await initDb();
-  console.log('Strykon Database Ready.');
-
-  // Automatically ensure the database contains the verified Google Sheet dataset
-  try {
-    const paymentCount = queryOne('SELECT COUNT(*) as count FROM payments')?.count || 0;
-    if (paymentCount === 0) {
-      console.log('Database empty: Seeding with authentic Google Sheets dataset...');
-      seedFinancialDataFromSheet();
-      console.log('Google Sheets dataset successfully loaded.');
-    }
-  } catch (err) {
-    console.error('Error during auto-seed check:', err);
-  }
+  console.log('Strykon Database Ready in clean operational state.');
 
   // Mount API Router FIRST
   app.use('/api', apiRouter);

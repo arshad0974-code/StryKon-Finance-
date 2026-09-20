@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { query, queryOne, run, transaction, saveDb, getDb, resetDatabase } from './db.js';
-import { seedFinancialDataFromSheet } from './seed_from_sheet.js';
 
 export const apiRouter = Router();
 
@@ -1402,15 +1401,12 @@ apiRouter.post('/system/reset-blank', async (req, res) => {
   res.json({ success: true, message: 'Financial database successfully reset to clean blank state.' });
 });
 
-// Seed database with full provided Google Sheet financial dataset
+// Legacy sheet dataset import endpoint (disabled to ensure clean state persists)
 apiRouter.all('/system/seed-sheet-data', (req, res) => {
-  try {
-    const result = seedFinancialDataFromSheet();
-    res.json({ success: true, message: 'Financial database successfully populated with Google Sheet data.', result });
-  } catch (err: any) {
-    console.error('Error seeding sheet data:', err);
-    res.status(500).json({ error: err?.message || 'Failed to seed sheet data' });
-  }
+  res.json({
+    success: false,
+    message: 'Automatic Excel/Sheet dataset seeding has been permanently disabled. The system is operating in a clean state ready for fresh manual and custom data entry.'
+  });
 });
 
 // 20. Automated 14 Acceptance Criteria Verification Test Suite

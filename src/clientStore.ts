@@ -1,7 +1,15 @@
 import seedDb from './data/seedDb.json';
 import { AcceptanceTestResult } from './types';
 
-const STORAGE_KEY = 'STRYKON_CLIENT_STORE_CLEAN_V3';
+const STORAGE_KEY = 'STRYKON_CLIENT_STORE_CLEAN_V4';
+const LEGACY_STORAGE_KEYS = [
+  'STRYKON_CLIENT_STORE_CLEAN_V3',
+  'STRYKON_CLIENT_STORE_CLEAN_V2',
+  'STRYKON_CLIENT_STORE_CLEAN_V1',
+  'STRYKON_FINANCE_DATA_CLEAN_V3',
+  'STRYKON_FINANCE_DATA_CLEAN_V2',
+  'STRYKON_FINANCE_DATA_CLEAN_V1'
+];
 
 export interface ClientStoreState {
   users: any[];
@@ -28,25 +36,25 @@ function getDefaultState(): ClientStoreState {
   return {
     users: seedDb.users || [],
     partners: seedDb.partners || [],
-    accounts: seedDb.accounts || [],
-    clients: seedDb.clients || [],
-    contracts: seedDb.contracts || [],
-    invoices: seedDb.invoices || [],
-    invoiceItems: seedDb.invoiceItems || [],
-    payments: seedDb.payments || [],
-    expenses: seedDb.expenses || [],
+    accounts: (seedDb.accounts || []).map(a => ({ ...a, current_balance: 0 })),
+    clients: [],
+    contracts: [],
+    invoices: [],
+    invoiceItems: [],
+    payments: [],
+    expenses: [],
     employees: [],
     payroll: [],
-    distributions: seedDb.distributions || [],
-    loans: seedDb.loans || [],
-    loanTransactions: seedDb.loanTransactions || [],
-    transactions: seedDb.transactions || [],
+    distributions: [],
+    loans: [],
+    loanTransactions: [],
+    transactions: [],
     auditLogs: seedDb.auditLogs || [],
     notifications: [
       {
         id: 1,
-        title: 'System Initialized',
-        message: 'Strykon Finance OS running with full verified financial ledger.',
+        title: 'Clean Slate Ready',
+        message: 'Strykon Finance OS initialized in clean blank state. Ready for fresh financial records.',
         type: 'info',
         is_read: 1,
         created_at: new Date().toISOString()
@@ -69,6 +77,13 @@ function getState(): ClientStoreState {
   if (memoryState) return memoryState;
 
   if (typeof window !== 'undefined' && window.localStorage) {
+    // Purge legacy storage keys that may contain old spreadsheet records
+    try {
+      LEGACY_STORAGE_KEYS.forEach(k => window.localStorage.removeItem(k));
+    } catch {
+      // ignore
+    }
+
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -859,6 +874,7 @@ export function handleClientRequest<T>(
   if (path === '/system/reset-blank' && method === 'POST') {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(STORAGE_KEY);
+      LEGACY_STORAGE_KEYS.forEach(k => window.localStorage.removeItem(k));
     }
     memoryState = getDefaultState();
     return { success: true, message: 'Database reset to clean state' } as T;

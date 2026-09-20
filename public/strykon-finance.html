@@ -619,7 +619,13 @@
 
   <!-- Embedded Local State Engine & Reactive Script -->
   <script>
-    const STORAGE_KEY = 'STRYKON_FINANCE_DATA_CLEAN_V3';
+    const STORAGE_KEY = 'STRYKON_FINANCE_DATA_CLEAN_V4';
+    const LEGACY_STORAGE_KEYS = [
+      'STRYKON_FINANCE_DATA_CLEAN_V3',
+      'STRYKON_FINANCE_DATA_CLEAN_V2',
+      'STRYKON_FINANCE_DATA_CLEAN_V1',
+      'STRYKON_CLIENT_STORE_CLEAN_V3'
+    ];
 
     // Initial Blank Database Template
     function getBlankState() {
@@ -677,6 +683,7 @@
     // Load or Initialize
     let db = (function() {
       try {
+        LEGACY_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) return JSON.parse(raw);
       } catch (e) {
