@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Payment, Invoice, Client, Account, Partner } from '../types';
 import { formatPKR, formatUSD, formatDate } from '../utils/formatters';
 import { DollarSign, Plus, CheckCircle, Clock, AlertTriangle, UserCheck, ShieldCheck, ArrowDownRight } from 'lucide-react';
 import { api } from '../api';
+import { EditableCombobox, ComboboxOption } from './EditableCombobox';
 
 interface PaymentsViewProps {
   payments: Payment[];
@@ -31,7 +32,9 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
   const [successMsg, setSuccessMsg] = useState('');
 
   // Form states
-  const [clientId, setClientId] = useState<number>(initialInvoice ? initialInvoice.client_id : (clients[0]?.id || 1));
+  const initialClient = clients.find(c => c.id === (initialInvoice ? initialInvoice.client_id : clients[0]?.id));
+  const [clientName, setClientName] = useState(initialClient ? (initialClient.company_name || initialClient.name) : '');
+  const [clientId, setClientId] = useState<number | null>(initialInvoice ? initialInvoice.client_id : (clients[0]?.id || null));
   const [invoiceId, setInvoiceId] = useState<number | ''>(initialInvoice ? initialInvoice.id : '');
   const [accountId, setAccountId] = useState<number>(accounts[0]?.id || 1);
   const [partnerId, setPartnerId] = useState<number | ''>(1); // Musaddiq or Arshad
@@ -42,6 +45,50 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [referenceNote, setReferenceNote] = useState('');
   const [isAdvance, setIsAdvance] = useState(false);
+
+  useEffect(() => {
+    if (initialInvoice) {
+      const cli = clients.find(c => c.id === initialInvoice.client_id);
+      if (cli) {
+        setClientId(cli.id);
+        setClientName(cli.company_name || cli.name);
+      }
+    } else if (!clientName && clients[0]) {
+      setClientId(clients[0].id);
+      setClientName(clients[0].company_name || clients[0].name);
+    }
+  }, [initialInvoice, clients]);
+
+  const clientOptions: ComboboxOption[] = useMemo(() => {
+    return clients.map(c => ({
+      id: c.id,
+      label: c.company_name || c.name,
+      sublabel: c.name && c.company_name && c.name !== c.company_name ? `Contact: ${c.name} · ${c.country || 'Pakistan'}` : (c.country || 'Client Profile'),
+      meta: c
+    }));
+  }, [clients]);
+
+  const handleClientNameChange = (val: string) => {
+    setClientName(val);
+    const match = clients.find(c =>
+      (c.company_name && c.company_name.toLowerCase() === val.trim().toLowerCase()) ||
+      (c.name && c.name.toLowerCase() === val.trim().toLowerCase())
+    );
+    if (match) {
+      setClientId(match.id);
+    } else {
+      setClientId(null);
+      setInvoiceId('');
+    }
+  };
+
+  const handleSelectClient = (opt: ComboboxOption) => {
+    setClientName(opt.label);
+    if (opt.id) {
+      setClientId(Number(opt.id));
+      setInvoiceId('');
+    }
+  };
 
   // Selected invoice info
   const selectedInvoice = invoices.find(inv => inv.id === Number(invoiceId));
@@ -61,16 +108,38 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientId || !accountId || amountOriginal <= 0) {
-      setErrorMsg('Client, receiving account, and positive amount are required.');
+    const trimmedClientName = clientName.trim();
+    if (!trimmedClientName || !accountId || amountOriginal <= 0) {
+      setErrorMsg('Client name, receiving account, and positive amount are required.');
       return;
     }
 
     setIsSubmitting(true);
     setErrorMsg('');
     try {
+      let resolvedId = clientId;
+      if (!resolvedId) {
+        const match = clients.find(c =>
+          (c.company_name && c.company_name.toLowerCase() === trimmedClientName.toLowerCase()) ||
+          (c.name && c.name.toLowerCase() === trimmedClientName.toLowerCase())
+        );
+        if (match) {
+          resolvedId = match.id;
+        } else {
+          const newCli = await api.createClient({
+            company_name: trimmedClientName,
+            name: trimmedClientName,
+            country: 'Pakistan',
+            email: '',
+            phone: ''
+          });
+          resolvedId = newCli.id;
+        }
+      }
+
       const res = await api.recordPayment({
-        client_id: clientId,
+        client_id: resolvedId,
+        client_name: trimmedClientName,
         invoice_id: invoiceId ? Number(invoiceId) : null,
         account_id: accountId,
         partner_id: partnerId ? Number(partnerId) : null,
@@ -234,18 +303,25 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
               
               {/* Client Selection */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Client *</label>
-                <select
-                  value={clientId}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    setClientId(id);
-                    setInvoiceId('');
-                  }}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"
-                >
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.company_name} ({c.name})</option>)}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-300 font-semibold">Client Name *</label>
+                  {clientId ? (
+                    <span className="text-[10px] text-emerald-400 font-medium">Existing Client Profile</span>
+                  ) : clientName.trim() ? (
+                    <span className="text-[10px] text-blue-400 font-medium">+ New client profile</span>
+                  ) : null}
+                </div>
+                <EditableCombobox
+                  id="payment-client-name"
+                  value={clientName}
+                  onChange={handleClientNameChange}
+                  onSelectOption={handleSelectClient}
+                  options={clientOptions}
+                  placeholder="Type client name or select existing..."
+                  required
+                  createNewText="Record receipt for new client"
+                  emptyText="No matching clients found. You can enter and record receipt for this new client directly."
+                />
               </div>
 
               {/* Link to Invoice */}

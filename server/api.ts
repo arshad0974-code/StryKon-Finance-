@@ -272,9 +272,31 @@ apiRouter.get('/contracts', (req, res) => {
   res.json(contracts);
 });
 
+function resolveOrCreateClientId(clientId: any, clientName?: string, username = 'system'): number | null {
+  const idNum = Number(clientId);
+  if (idNum && !isNaN(idNum)) {
+    const existing = queryOne('SELECT id FROM clients WHERE id = ?', [idNum]);
+    if (existing) return existing.id;
+  }
+  const nameToResolve = (typeof clientId === 'string' && isNaN(Number(clientId)) ? clientId : clientName || '').trim();
+  if (nameToResolve) {
+    const existingByName = queryOne('SELECT id FROM clients WHERE LOWER(company_name) = LOWER(?) OR LOWER(name) = LOWER(?)', [nameToResolve, nameToResolve]);
+    if (existingByName) return existingByName.id;
+
+    const res = run('INSERT INTO clients (name, company_name, email, phone, country, address, created_at) VALUES (?, ?, "", "", "Pakistan", "", datetime("now"))', [nameToResolve, nameToResolve]);
+    const newId = res.lastInsertRowid;
+    run('INSERT INTO audit_logs (entity_type, entity_id, action, changed_by, reason) VALUES (?, ?, ?, ?, ?)',
+      ['clients', newId, 'CREATE', username, `Auto-created client profile "${nameToResolve}"`]);
+    return newId;
+  }
+  return null;
+}
+
 apiRouter.post('/contracts', (req, res) => {
-  const { client_id, title, contract_number, contract_value, currency, exchange_rate, start_date, end_date, billing_cycle, notes } = req.body;
-  if (!client_id || !title || !contract_value) return res.status(400).json({ error: 'Missing contract fields' });
+  const currentUser = getCurrentUser(req);
+  const { client_id, client_name, title, contract_number, contract_value, currency, exchange_rate, start_date, end_date, billing_cycle, notes } = req.body;
+  const resolvedClientId = resolveOrCreateClientId(client_id, client_name, currentUser.username);
+  if (!resolvedClientId || !title || !contract_value) return res.status(400).json({ error: 'Client, title, and contract value are required' });
 
   const curr = currency || 'PKR';
   const defaultRate = Number(queryOne('SELECT value FROM settings WHERE key = "usd_exchange_rate"')?.value || 280);
@@ -286,7 +308,7 @@ apiRouter.post('/contracts', (req, res) => {
   const result = run(`
     INSERT INTO contracts (client_id, title, contract_number, contract_value, currency, exchange_rate, contract_value_pkr, start_date, end_date, billing_cycle, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [client_id, title, cNum, value, curr, rate, valuePkr, start_date, end_date || null, billing_cycle || 'monthly', notes || '']);
+  `, [resolvedClientId, title, cNum, value, curr, rate, valuePkr, start_date, end_date || null, billing_cycle || 'monthly', notes || '']);
 
   res.json({ success: true, id: result.lastInsertRowid });
 });
@@ -312,9 +334,10 @@ apiRouter.get('/invoices', (req, res) => {
 
 apiRouter.post('/invoices', (req, res) => {
   const currentUser = getCurrentUser(req);
-  const { client_id, contract_id, issue_date, due_date, currency, exchange_rate, items, notes } = req.body;
+  const { client_id, client_name, contract_id, issue_date, due_date, currency, exchange_rate, items, notes } = req.body;
+  const resolvedClientId = resolveOrCreateClientId(client_id, client_name, currentUser.username);
 
-  if (!client_id || !issue_date || !due_date || !items || !Array.isArray(items) || items.length === 0) {
+  if (!resolvedClientId || !issue_date || !due_date || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Client, dates, and line items are required' });
   }
 
@@ -338,7 +361,7 @@ apiRouter.post('/invoices', (req, res) => {
     const invRes = run(`
       INSERT INTO invoices (invoice_number, client_id, contract_id, issue_date, due_date, currency, exchange_rate, subtotal, tax_amount, total_amount, total_amount_pkr, paid_amount, balance_due, status, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?, ?, ?)
-    `, [invNumber, client_id, contract_id || null, issue_date, due_date, curr, rate, subtotal, totalAmount, totalPkr, totalAmount, initialStatus, notes || '']);
+    `, [invNumber, resolvedClientId, contract_id || null, issue_date, due_date, curr, rate, subtotal, totalAmount, totalPkr, totalAmount, initialStatus, notes || '']);
 
     const newId = invRes.lastInsertRowid;
     for (const item of items) {
@@ -380,10 +403,11 @@ apiRouter.get('/payments', (req, res) => {
 
 apiRouter.post('/payments', (req, res) => {
   const currentUser = getCurrentUser(req);
-  const { client_id, invoice_id, account_id, partner_id, payment_date, currency, exchange_rate, amount_original, payment_method, reference_note, is_advance } = req.body;
+  const { client_id, client_name, invoice_id, account_id, partner_id, payment_date, currency, exchange_rate, amount_original, payment_method, reference_note, is_advance } = req.body;
 
+  const resolvedClientId = resolveOrCreateClientId(client_id, client_name, currentUser.username);
   const amtOriginal = Number(amount_original);
-  if (!client_id || !account_id || isNaN(amtOriginal) || amtOriginal <= 0) {
+  if (!resolvedClientId || !account_id || isNaN(amtOriginal) || amtOriginal <= 0) {
     return res.status(400).json({ error: 'Client, receiving account, and positive amount are required' });
   }
 
@@ -399,7 +423,7 @@ apiRouter.post('/payments', (req, res) => {
     SELECT id FROM payments 
     WHERE client_id = ? AND account_id = ? AND amount_original = ? AND payment_date = ? 
     AND datetime(created_at) >= datetime('now', '-1 minute')
-  `, [client_id, account_id, amtOriginal, payment_date]);
+  `, [resolvedClientId, account_id, amtOriginal, payment_date]);
 
   if (recentDuplicate) {
     return res.status(400).json({ error: 'Duplicate payment detected. This exact receipt was just submitted.' });

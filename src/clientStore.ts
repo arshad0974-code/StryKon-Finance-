@@ -432,10 +432,37 @@ export function handleClientRequest<T>(
     }) as T;
   }
 
+  function resolveStoreClientId(clientId: any, clientName?: string): number {
+    const idNum = Number(clientId);
+    if (idNum && state.clients.some(c => c.id === idNum)) return idNum;
+    const nameToSearch = (typeof clientId === 'string' && isNaN(Number(clientId)) ? clientId : clientName || '').trim();
+    if (nameToSearch) {
+      const existing = state.clients.find(c =>
+        (c.company_name && c.company_name.toLowerCase() === nameToSearch.toLowerCase()) ||
+        (c.name && c.name.toLowerCase() === nameToSearch.toLowerCase())
+      );
+      if (existing) return existing.id;
+      const newId = state.clients.length + 1;
+      state.clients.push({
+        id: newId,
+        name: nameToSearch,
+        company_name: nameToSearch,
+        email: '',
+        phone: '',
+        country: 'Pakistan',
+        address: '',
+        created_at: new Date().toISOString()
+      });
+      return newId;
+    }
+    return idNum || (state.clients[0]?.id || 1);
+  }
+
   // 8. Contracts
   if (path === '/contracts') {
     if (method === 'POST') {
-      const newCt = { id: state.contracts.length + 1, ...body, status: 'active' };
+      const resolvedClientId = resolveStoreClientId(body.client_id, body.client_name);
+      const newCt = { id: state.contracts.length + 1, ...body, client_id: resolvedClientId, status: 'active' };
       state.contracts.push(newCt);
       saveState(state);
       return { success: true, id: newCt.id } as T;
@@ -451,13 +478,17 @@ export function handleClientRequest<T>(
     if (method === 'POST') {
       const invId = state.invoices.length + 1;
       const invNum = `INV-2026-${String(invId).padStart(3, '0')}`;
-      const totalAmount = Number(body.total_amount) || 0;
+      let totalAmount = Number(body.total_amount) || 0;
+      if (!totalAmount && Array.isArray(body.items)) {
+        totalAmount = body.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), 0);
+      }
       const rate = Number(body.exchange_rate) || 1.0;
       const totalPkr = Math.round(totalAmount * rate);
+      const resolvedClientId = resolveStoreClientId(body.client_id, body.client_name);
       const newInv = {
         id: invId,
         invoice_number: invNum,
-        client_id: Number(body.client_id),
+        client_id: resolvedClientId,
         contract_id: Number(body.contract_id) || null,
         issue_date: body.issue_date || new Date().toISOString().split('T')[0],
         due_date: body.due_date,
@@ -490,11 +521,12 @@ export function handleClientRequest<T>(
       const amtOrig = Number(body.amount_original) || 0;
       const rate = Number(body.exchange_rate) || 1.0;
       const amtPkr = Math.round(amtOrig * rate);
+      const resolvedClientId = resolveStoreClientId(body.client_id, body.client_name);
 
       const newPay = {
         id: payId,
         payment_number: payNum,
-        client_id: Number(body.client_id),
+        client_id: resolvedClientId,
         invoice_id: Number(body.invoice_id) || null,
         account_id: Number(body.account_id),
         partner_id: Number(body.partner_id) || null,

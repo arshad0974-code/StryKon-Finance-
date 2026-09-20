@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Client, Contract, Invoice, Account, Partner } from '../types';
 import { formatPKR, formatUSD, formatDate } from '../utils/formatters';
 import { FileText, Users, Plus, DollarSign, Clock, AlertTriangle, CheckCircle, Search, Calendar, CreditCard } from 'lucide-react';
 import { api } from '../api';
+import { EditableCombobox, ComboboxOption } from './EditableCombobox';
 
 interface ClientsInvoicesViewProps {
   clients: Client[];
@@ -33,7 +34,8 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
   const [successMsg, setSuccessMsg] = useState('');
 
   // Invoice form state
-  const [invClientId, setInvClientId] = useState<number>(clients[0]?.id || 1);
+  const [invClientName, setInvClientName] = useState('');
+  const [invClientId, setInvClientId] = useState<number | null>(clients[0]?.id || null);
   const [invContractId, setInvContractId] = useState<number | ''>('');
   const [invIssueDate, setInvIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [invDueDate, setInvDueDate] = useState(
@@ -54,12 +56,78 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
   const [clientCountry, setClientCountry] = useState('Pakistan');
 
   // Contract form state
-  const [conClientId, setConClientId] = useState<number>(clients[0]?.id || 1);
+  const [conClientName, setConClientName] = useState('');
+  const [conClientId, setConClientId] = useState<number | null>(clients[0]?.id || null);
   const [conTitle, setConTitle] = useState('');
   const [conValue, setConValue] = useState(2500);
   const [conCurrency, setConCurrency] = useState<'PKR' | 'USD'>('USD');
   const [conRate, setConRate] = useState(280);
   const [conCycle, setConCycle] = useState<'monthly' | 'milestone' | 'one_time'>('monthly');
+
+  // Sync client names when clients change or on open
+  useEffect(() => {
+    if (clients.length > 0) {
+      if (!invClientName && clients[0]) {
+        setInvClientName(clients[0].company_name || clients[0].name);
+        setInvClientId(clients[0].id);
+      }
+      if (!conClientName && clients[0]) {
+        setConClientName(clients[0].company_name || clients[0].name);
+        setConClientId(clients[0].id);
+      }
+    }
+  }, [clients]);
+
+  // Options for EditableCombobox
+  const clientOptions: ComboboxOption[] = useMemo(() => {
+    return clients.map(c => ({
+      id: c.id,
+      label: c.company_name || c.name,
+      sublabel: c.name && c.company_name && c.name !== c.company_name ? `Contact: ${c.name} · ${c.country || 'Pakistan'}` : (c.country || 'Client Profile'),
+      meta: c
+    }));
+  }, [clients]);
+
+  const handleInvClientNameChange = (val: string) => {
+    setInvClientName(val);
+    const match = clients.find(c =>
+      (c.company_name && c.company_name.toLowerCase() === val.trim().toLowerCase()) ||
+      (c.name && c.name.toLowerCase() === val.trim().toLowerCase())
+    );
+    if (match) {
+      setInvClientId(match.id);
+    } else {
+      setInvClientId(null);
+      setInvContractId('');
+    }
+  };
+
+  const handleSelectInvClient = (opt: ComboboxOption) => {
+    setInvClientName(opt.label);
+    if (opt.id) {
+      setInvClientId(Number(opt.id));
+    }
+  };
+
+  const handleConClientNameChange = (val: string) => {
+    setConClientName(val);
+    const match = clients.find(c =>
+      (c.company_name && c.company_name.toLowerCase() === val.trim().toLowerCase()) ||
+      (c.name && c.name.toLowerCase() === val.trim().toLowerCase())
+    );
+    if (match) {
+      setConClientId(match.id);
+    } else {
+      setConClientId(null);
+    }
+  };
+
+  const handleSelectConClient = (opt: ComboboxOption) => {
+    setConClientName(opt.label);
+    if (opt.id) {
+      setConClientId(Number(opt.id));
+    }
+  };
 
   // Invoice subtotal calculation
   const invSubtotal = invItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
@@ -67,16 +135,39 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
 
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!invClientId || invItems.length === 0) {
-      setErrorMsg('Please select a client and add at least one line item.');
+    const trimmedName = invClientName.trim();
+    if (!trimmedName || invItems.length === 0) {
+      setErrorMsg('Please enter or select a client name and add at least one line item.');
       return;
     }
 
     setIsSubmitting(true);
     setErrorMsg('');
     try {
+      let resolvedId = invClientId;
+      if (!resolvedId) {
+        const match = clients.find(c =>
+          (c.company_name && c.company_name.toLowerCase() === trimmedName.toLowerCase()) ||
+          (c.name && c.name.toLowerCase() === trimmedName.toLowerCase())
+        );
+        if (match) {
+          resolvedId = match.id;
+        } else {
+          // Create new client profile so it exists in system
+          const newCli = await api.createClient({
+            company_name: trimmedName,
+            name: trimmedName,
+            country: 'Pakistan',
+            email: '',
+            phone: ''
+          });
+          resolvedId = newCli.id;
+        }
+      }
+
       await api.createInvoice({
-        client_id: invClientId,
+        client_id: resolvedId,
+        client_name: trimmedName,
         contract_id: invContractId ? Number(invContractId) : null,
         issue_date: invIssueDate,
         due_date: invDueDate,
@@ -85,7 +176,7 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
         items: invItems,
         notes: invNotes
       });
-      setSuccessMsg('Invoice generated successfully and booked into billing ledger.');
+      setSuccessMsg(`Invoice generated successfully for "${trimmedName}" and booked into billing ledger.`);
       setShowInvoiceModal(false);
       onRefresh();
     } catch (err: any) {
@@ -124,14 +215,36 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
 
   const handleCreateContract = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!conTitle || !conValue) {
-      setErrorMsg('Contract Title and Value are required.');
+    const trimmedName = conClientName.trim();
+    if (!trimmedName || !conTitle || !conValue) {
+      setErrorMsg('Client Name, Contract Title and Value are required.');
       return;
     }
     setIsSubmitting(true);
     try {
+      let resolvedId = conClientId;
+      if (!resolvedId) {
+        const match = clients.find(c =>
+          (c.company_name && c.company_name.toLowerCase() === trimmedName.toLowerCase()) ||
+          (c.name && c.name.toLowerCase() === trimmedName.toLowerCase())
+        );
+        if (match) {
+          resolvedId = match.id;
+        } else {
+          const newCli = await api.createClient({
+            company_name: trimmedName,
+            name: trimmedName,
+            country: 'Pakistan',
+            email: '',
+            phone: ''
+          });
+          resolvedId = newCli.id;
+        }
+      }
+
       await api.createContract({
-        client_id: conClientId,
+        client_id: resolvedId,
+        client_name: trimmedName,
         title: conTitle,
         contract_value: Number(conValue),
         currency: conCurrency,
@@ -139,7 +252,7 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
         start_date: new Date().toISOString().split('T')[0],
         billing_cycle: conCycle
       });
-      setSuccessMsg('Contract created successfully.');
+      setSuccessMsg(`Contract created successfully for "${trimmedName}".`);
       setShowContractModal(false);
       setConTitle('');
       onRefresh();
@@ -437,14 +550,25 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
             <form onSubmit={handleCreateInvoice} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Client *</label>
-                  <select
-                    value={invClientId}
-                    onChange={(e) => setInvClientId(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
-                  >
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.company_name} ({c.name})</option>)}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-300 font-semibold">Client Name *</label>
+                    {invClientId ? (
+                      <span className="text-[10px] text-emerald-400 font-medium">Existing Client Profile</span>
+                    ) : invClientName.trim() ? (
+                      <span className="text-[10px] text-blue-400 font-medium">+ New client profile</span>
+                    ) : null}
+                  </div>
+                  <EditableCombobox
+                    id="invoice-client-name"
+                    value={invClientName}
+                    onChange={handleInvClientNameChange}
+                    onSelectOption={handleSelectInvClient}
+                    options={clientOptions}
+                    placeholder="Type client name or select existing..."
+                    required
+                    createNewText="Bill new client"
+                    emptyText="No matching clients. Enter new client name to bill."
+                  />
                 </div>
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Contract (Optional)</label>
@@ -454,7 +578,7 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
                   >
                     <option value="">None / Ad-hoc Service</option>
-                    {contracts.filter(c => c.client_id === invClientId).map(c => (
+                    {contracts.filter(c => invClientId && c.client_id === invClientId).map(c => (
                       <option key={c.id} value={c.id}>{c.contract_number} - {c.title}</option>
                     ))}
                   </select>
@@ -683,14 +807,25 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
             <h3 className="text-base font-bold text-white">New Service Contract</h3>
             <form onSubmit={handleCreateContract} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Client *</label>
-                <select
-                  value={conClientId}
-                  onChange={(e) => setConClientId(Number(e.target.value))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
-                >
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-300 font-semibold">Client Name *</label>
+                  {conClientId ? (
+                    <span className="text-[10px] text-emerald-400 font-medium">Existing Client Profile</span>
+                  ) : conClientName.trim() ? (
+                    <span className="text-[10px] text-blue-400 font-medium">+ New client profile</span>
+                  ) : null}
+                </div>
+                <EditableCombobox
+                  id="contract-client-name"
+                  value={conClientName}
+                  onChange={handleConClientNameChange}
+                  onSelectOption={handleSelectConClient}
+                  options={clientOptions}
+                  placeholder="Type client name or select existing..."
+                  required
+                  createNewText="Create contract for new client"
+                  emptyText="No matching clients. Enter new client name."
+                />
               </div>
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">Contract Title / Retainer *</label>

@@ -433,8 +433,9 @@
       <h3 class="text-base font-bold text-white">Record Client Payment Receipt</h3>
       <form onsubmit="handleRecordPayment(event)" class="space-y-3 text-xs">
         <div>
-          <label class="block text-slate-400 mb-1">Client *</label>
-          <select id="pay-client" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+          <label class="block text-slate-400 mb-1">Client * (Type new name or select existing)</label>
+          <input type="text" id="pay-client" list="pay-client-list" placeholder="Type client name or select..." required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+          <datalist id="pay-client-list"></datalist>
         </div>
         <div>
           <label class="block text-slate-400 mb-1">Attributed Partner *</label>
@@ -485,8 +486,9 @@
           </select>
         </div>
         <div>
-          <label class="block text-slate-400 mb-1">Description *</label>
-          <input type="text" id="exp-desc" placeholder="e.g. Server hosting or marketing fees" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+          <label class="block text-slate-400 mb-1">Expenditure Name / Description * (Type new name or select existing)</label>
+          <input type="text" id="exp-desc" list="exp-desc-list" placeholder="Type or select expenditure name..." required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+          <datalist id="exp-desc-list"></datalist>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
@@ -518,8 +520,9 @@
       <h3 class="text-base font-bold text-white">Issue Client Invoice</h3>
       <form onsubmit="handleCreateInvoice(event)" class="space-y-3 text-xs">
         <div>
-          <label class="block text-slate-400 mb-1">Client *</label>
-          <select id="inv-client" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></select>
+          <label class="block text-slate-400 mb-1">Client * (Type new name or select existing)</label>
+          <input type="text" id="inv-client" list="inv-client-list" placeholder="Type client name or select..." required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+          <datalist id="inv-client-list"></datalist>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
@@ -1247,19 +1250,50 @@
       renderAll();
     }
 
+    function resolveOrCreateClient(nameOrId) {
+      if (!nameOrId) return null;
+      const idNum = Number(nameOrId);
+      if (idNum) {
+        const found = db.clients.find(c => c.id === idNum);
+        if (found) return found;
+      }
+      const trimmed = String(nameOrId).trim();
+      if (!trimmed) return null;
+      const existing = db.clients.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing) return existing;
+      const newClient = {
+        id: db.clients.length + 1,
+        name: trimmed,
+        email: '',
+        phone: '',
+        country: 'Pakistan'
+      };
+      db.clients.push(newClient);
+      return newClient;
+    }
+
     function populateSelectOptions() {
-      // Clients
-      const clientSelects = ['pay-client', 'inv-client'];
-      clientSelects.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          if (db.clients.length === 0) {
-            el.innerHTML = '<option value="">(No Clients — Click + Add Client)</option>';
-          } else {
-            el.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-          }
-        }
-      });
+      // Clients datalists
+      const clientOptionsHtml = db.clients.map(c => `<option value="${c.name}"></option>`).join('');
+      const invList = document.getElementById('inv-client-list');
+      if (invList) invList.innerHTML = clientOptionsHtml;
+      const payList = document.getElementById('pay-client-list');
+      if (payList) payList.innerHTML = clientOptionsHtml;
+
+      // Expenses suggestions datalist
+      const expList = document.getElementById('exp-desc-list');
+      if (expList) {
+        const descSet = new Set();
+        (db.expenses || []).forEach(e => { if (e.description) descSet.add(e.description); });
+        [
+          'Figma Team Subscription', 'Adobe Creative Cloud', 'Google Workspace & Cloud Storage',
+          'AWS / Vercel Cloud Hosting', 'Office Rent & Facilities', 'High-Speed Fiber Internet',
+          'Office Electricity & Power Backup', 'Meta & Google Ads Campaign',
+          'Freelance UI/UX Designer Contractor', 'Freelance Fullstack Developer Contractor',
+          'Client Dinner & Hospitality', 'Corporate Legal & Tax Advisory', 'Office Pantry & Refreshments'
+        ].forEach(d => descSet.add(d));
+        expList.innerHTML = Array.from(descSet).map(d => `<option value="${d}"></option>`).join('');
+      }
 
       // Accounts
       const accSelects = ['pay-account', 'exp-account', 'dist-account', 'tr-from', 'tr-to'];
@@ -1293,8 +1327,10 @@
     // Actions
     function handleRecordPayment(e) {
       e.preventDefault();
-      const clientId = Number(document.getElementById('pay-client').value);
-      if (!clientId) return alert('Please add or select a client first.');
+      const rawClient = document.getElementById('pay-client').value;
+      const client = resolveOrCreateClient(rawClient);
+      if (!client) return alert('Please enter or select a client name.');
+      const clientId = client.id;
       const partnerId = Number(document.getElementById('pay-partner').value);
       const currency = document.getElementById('pay-currency').value;
       const amountOrig = Number(document.getElementById('pay-amount').value);
@@ -1302,7 +1338,6 @@
       const amountPkr = Math.round(amountOrig * rate);
       const accountId = Number(document.getElementById('pay-account').value);
 
-      const client = db.clients.find(c => c.id === clientId);
       const partner = db.partners.find(p => p.id === partnerId);
       const account = db.accounts.find(a => a.id === accountId);
 
@@ -1406,11 +1441,12 @@
 
     function handleCreateInvoice(e) {
       e.preventDefault();
-      const clientId = Number(document.getElementById('inv-client').value);
-      if (!clientId) return alert('Please add a client first.');
+      const rawClient = document.getElementById('inv-client').value;
+      const client = resolveOrCreateClient(rawClient);
+      if (!client) return alert('Please enter or select a client name.');
+      const clientId = client.id;
       const amountPkr = Number(document.getElementById('inv-amount').value);
       const dueDate = document.getElementById('inv-due').value;
-      const client = db.clients.find(c => c.id === clientId);
       const invNum = 'INV-' + (db.invoices.length + 1).toString().padStart(4, '0');
 
       db.invoices.push({

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Expense, Account, Partner } from '../types';
 import { formatPKR, formatUSD, formatDate } from '../utils/formatters';
 import { TrendingDown, Plus, Filter, Search, Tag, Building2, UserCheck } from 'lucide-react';
 import { api } from '../api';
+import { EditableCombobox, ComboboxOption } from './EditableCombobox';
 
 interface ExpensesViewProps {
   expenses: Expense[];
@@ -50,6 +51,64 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     { id: 'legal_tax', label: 'Legal & Professional Services' },
     { id: 'other', label: 'General / Miscellaneous' }
   ];
+
+  // Combobox options derived from recorded expenses + standard agency operations
+  const expenditureOptions: ComboboxOption[] = useMemo(() => {
+    const map = new Map<string, ComboboxOption>();
+
+    // 1. Existing recorded expenses in application
+    for (const exp of expenses) {
+      if (exp.title && !map.has(exp.title.trim().toLowerCase())) {
+        map.set(exp.title.trim().toLowerCase(), {
+          id: exp.id,
+          label: exp.title,
+          sublabel: exp.vendor ? `Vendor: ${exp.vendor} · ${exp.category.replace('_', ' ')}` : exp.category.replace('_', ' '),
+          meta: exp
+        });
+      }
+    }
+
+    // 2. Standard agency operational expenditure suggestions
+    const standardAgencyExpenses = [
+      { label: 'Figma Team Subscription', category: 'software_tools', vendor: 'Figma Inc' },
+      { label: 'Adobe Creative Cloud', category: 'software_tools', vendor: 'Adobe Systems' },
+      { label: 'Google Workspace & Cloud Storage', category: 'software_tools', vendor: 'Google LLC' },
+      { label: 'AWS / Vercel Cloud Hosting', category: 'software_tools', vendor: 'Amazon Web Services' },
+      { label: 'Office Rent & Facilities', category: 'office_rent', vendor: 'Commercial Plaza Landlord' },
+      { label: 'High-Speed Fiber Internet', category: 'utilities', vendor: 'Nayatel / PTCL' },
+      { label: 'Office Electricity & Power Backup', category: 'utilities', vendor: 'IESCO / K-Electric' },
+      { label: 'Meta & Google Ads Campaign', category: 'marketing', vendor: 'Meta Platforms' },
+      { label: 'Freelance UI/UX Designer Contractor', category: 'contractor_fees', vendor: 'External Contractor' },
+      { label: 'Freelance Fullstack Developer Contractor', category: 'contractor_fees', vendor: 'External Contractor' },
+      { label: 'Client Dinner & Hospitality', category: 'client_entertainment', vendor: 'Hospitality / Restaurant' },
+      { label: 'Corporate Legal & Tax Advisory', category: 'legal_tax', vendor: 'Legal Counsel' },
+      { label: 'Office Pantry & Refreshments', category: 'other', vendor: 'Pantry Supplies' }
+    ];
+
+    for (const std of standardAgencyExpenses) {
+      if (!map.has(std.label.toLowerCase())) {
+        map.set(std.label.toLowerCase(), {
+          label: std.label,
+          sublabel: `Suggested · ${std.category.replace('_', ' ')}`,
+          meta: std
+        });
+      }
+    }
+
+    return Array.from(map.values());
+  }, [expenses]);
+
+  const handleSelectExpenditure = (opt: ComboboxOption) => {
+    setTitle(opt.label);
+    if (opt.meta) {
+      if (opt.meta.category) setCategory(opt.meta.category);
+      if (opt.meta.vendor && !vendor) setVendor(opt.meta.vendor);
+      if (opt.meta.currency) setCurrency(opt.meta.currency);
+      if (opt.meta.amount_original && (!amountOriginal || amountOriginal === 150)) {
+        setAmountOriginal(opt.meta.amount_original);
+      }
+    }
+  };
 
   const filtered = expenses.filter(e => {
     const matchCat = filterCategory === 'all' || e.category === filterCategory;
@@ -247,14 +306,20 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Expense Title / Item *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Figma & Adobe Creative Cloud Subscription"
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-300 font-semibold">Expense Title / Item *</label>
+                  <span className="text-[10px] text-slate-400">Type new name or select existing</span>
+                </div>
+                <EditableCombobox
+                  id="expense-title-combobox"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"
+                  onChange={(val) => setTitle(val)}
+                  onSelectOption={handleSelectExpenditure}
+                  options={expenditureOptions}
+                  placeholder="Type new expenditure name or select existing..."
+                  required
+                  createNewText="Use custom expenditure name"
+                  emptyText="No matching expenditures found. You can enter and record this new expenditure directly."
                 />
               </div>
 
