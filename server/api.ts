@@ -1266,6 +1266,132 @@ apiRouter.get('/backup', (req, res) => {
   res.send(JSON.stringify(backupData, null, 2));
 });
 
+// --- History Management & Record Deletion ---
+function recalculateAllAccountBalances() {
+  run('UPDATE accounts SET current_balance = 0');
+  const txns = query<any>('SELECT * FROM transactions WHERE is_reversed = 0');
+  for (const t of txns) {
+    if (t.debit_account_id) {
+      run('UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?', [t.amount_pkr, t.debit_account_id]);
+    }
+    if (t.credit_account_id) {
+      run('UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?', [t.amount_pkr, t.credit_account_id]);
+    }
+  }
+}
+
+function deleteHistoryRecordInternal(type: string, id: number, username: string) {
+  if (type === 'transaction') {
+    run('DELETE FROM transactions WHERE id = ?', [id]);
+  } else if (type === 'invoice') {
+    run('DELETE FROM invoice_items WHERE invoice_id = ?', [id]);
+    run('DELETE FROM payments WHERE invoice_id = ?', [id]);
+    run('DELETE FROM transactions WHERE invoice_id = ? OR (reference_type = "invoice" AND reference_id = ?)', [id, id]);
+    run('DELETE FROM invoices WHERE id = ?', [id]);
+  } else if (type === 'expense') {
+    run('DELETE FROM transactions WHERE reference_type = "expense" AND reference_id = ?', [id]);
+    run('DELETE FROM expenses WHERE id = ?', [id]);
+  } else if (type === 'payment') {
+    run('DELETE FROM transactions WHERE reference_type = "payment" AND reference_id = ?', [id]);
+    run('DELETE FROM payments WHERE id = ?', [id]);
+  } else if (type === 'distribution') {
+    run('DELETE FROM transactions WHERE reference_type = "distribution" AND reference_id = ?', [id]);
+    run('DELETE FROM partner_distributions WHERE id = ?', [id]);
+  } else if (type === 'loan') {
+    run('DELETE FROM loan_transactions WHERE loan_id = ?', [id]);
+    run('DELETE FROM transactions WHERE reference_type = "loan" AND reference_id = ?', [id]);
+    run('DELETE FROM loans WHERE id = ?', [id]);
+  }
+  recalculateAllAccountBalances();
+  run('INSERT INTO audit_logs (entity_type, entity_id, action, changed_by, reason) VALUES (?, ?, ?, ?, ?)',
+    [type, id, 'DELETE', username, `Manual deletion of previous record #${id} (${type})`]);
+}
+
+apiRouter.post('/history/delete-item', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const { type, id } = req.body;
+  if (!type || !id) return res.status(400).json({ error: 'Type and id are required' });
+  transaction(() => {
+    deleteHistoryRecordInternal(type, Number(id), currentUser.username);
+  });
+  saveDb();
+  res.json({ success: true, message: `Record #${id} (${type}) successfully deleted` });
+});
+
+apiRouter.post('/history/delete-multiple', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const { items } = req.body as { items: Array<{ type: string; id: number }> };
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Valid items array required' });
+  }
+  transaction(() => {
+    for (const item of items) {
+      deleteHistoryRecordInternal(item.type, Number(item.id), currentUser.username);
+    }
+  });
+  saveDb();
+  res.json({ success: true, deletedCount: items.length, message: `Successfully deleted ${items.length} records.` });
+});
+
+apiRouter.post('/history/delete-all', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  transaction(() => {
+    run('DELETE FROM invoice_items');
+    run('DELETE FROM payments');
+    run('DELETE FROM invoices');
+    run('DELETE FROM expenses');
+    run('DELETE FROM partner_distributions');
+    run('DELETE FROM loan_transactions');
+    run('DELETE FROM loans');
+    run('DELETE FROM transactions');
+    run('UPDATE accounts SET current_balance = 0');
+    run('INSERT INTO audit_logs (entity_type, entity_id, action, changed_by, reason) VALUES (?, ?, ?, ?, ?)',
+      ['history', 0, 'DELETE', currentUser.username, 'All previous calculator records permanently removed.']);
+  });
+  saveDb();
+  res.json({ success: true, message: 'All previous calculator records successfully deleted.' });
+});
+
+apiRouter.delete('/transactions/:id', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const id = Number(req.params.id);
+  transaction(() => {
+    deleteHistoryRecordInternal('transaction', id, currentUser.username);
+  });
+  saveDb();
+  res.json({ success: true, message: 'Transaction deleted' });
+});
+
+apiRouter.delete('/expenses/:id', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const id = Number(req.params.id);
+  transaction(() => {
+    deleteHistoryRecordInternal('expense', id, currentUser.username);
+  });
+  saveDb();
+  res.json({ success: true, message: 'Expense deleted' });
+});
+
+apiRouter.delete('/invoices/:id', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const id = Number(req.params.id);
+  transaction(() => {
+    deleteHistoryRecordInternal('invoice', id, currentUser.username);
+  });
+  saveDb();
+  res.json({ success: true, message: 'Invoice deleted' });
+});
+
+apiRouter.delete('/payments/:id', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const id = Number(req.params.id);
+  transaction(() => {
+    deleteHistoryRecordInternal('payment', id, currentUser.username);
+  });
+  saveDb();
+  res.json({ success: true, message: 'Payment deleted' });
+});
+
 // Reset database to completely clean blank state (v2.1)
 apiRouter.post('/system/reset-blank', async (req, res) => {
   const currentUser = getCurrentUser(req);

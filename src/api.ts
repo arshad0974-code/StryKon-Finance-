@@ -56,6 +56,23 @@ export const api = {
   getAcceptanceTests: () => request<{ total_tests: number; passed_count: number; all_passed: boolean; tests: AcceptanceTestResult[] }>('/system/run-acceptance-tests'),
   resetBlankDatabase: () => request<{ success: boolean; message: string }>('/system/reset-blank', { method: 'POST' }),
 
+  // History & Previous Data Management
+  deleteHistoryItem: (type: string, id: number) => request<{ success: boolean; message: string }>('/history/delete-item', {
+    method: 'POST',
+    body: JSON.stringify({ type, id }),
+  }),
+  deleteHistoryMultiple: (items: Array<{ type: string; id: number }>) => request<{ success: boolean; deletedCount: number; message: string }>('/history/delete-multiple', {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  }),
+  deleteAllHistory: () => request<{ success: boolean; message: string }>('/history/delete-all', {
+    method: 'POST',
+  }),
+  deleteTransaction: (id: number) => request<{ success: boolean; message: string }>(`/transactions/${id}`, { method: 'DELETE' }),
+  deleteExpense: (id: number) => request<{ success: boolean; message: string }>(`/expenses/${id}`, { method: 'DELETE' }),
+  deleteInvoice: (id: number) => request<{ success: boolean; message: string }>(`/invoices/${id}`, { method: 'DELETE' }),
+  deletePayment: (id: number) => request<{ success: boolean; message: string }>(`/payments/${id}`, { method: 'DELETE' }),
+
   // Auth & Users
   getUsers: () => request<User[]>('/auth/users'),
   login: (credentials: { username: string; password: string }) => request<{ success: boolean; user: User; token: string }>('/auth/login', {

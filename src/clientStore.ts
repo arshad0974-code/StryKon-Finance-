@@ -1,7 +1,7 @@
 import seedDb from './data/seedDb.json';
 import { AcceptanceTestResult } from './types';
 
-const STORAGE_KEY = 'STRYKON_CLIENT_STORE_V2';
+const STORAGE_KEY = 'STRYKON_CLIENT_STORE_CLEAN_V3';
 
 export interface ClientStoreState {
   users: any[];
@@ -94,6 +94,45 @@ function saveState(state: ClientStoreState) {
       // ignore storage quota errors
     }
   }
+}
+
+function recalculateClientBalances(state: ClientStoreState) {
+  state.accounts.forEach(a => a.current_balance = 0);
+  state.transactions.filter(t => !t.is_reversed).forEach(t => {
+    if (t.debit_account_id) {
+      const acc = state.accounts.find(a => a.id === t.debit_account_id);
+      if (acc) acc.current_balance += (t.amount_pkr || 0);
+    }
+    if (t.credit_account_id) {
+      const acc = state.accounts.find(a => a.id === t.credit_account_id);
+      if (acc) acc.current_balance -= (t.amount_pkr || 0);
+    }
+  });
+}
+
+function deleteClientRecordInternal(state: ClientStoreState, type: string, id: number) {
+  if (type === 'transaction') {
+    state.transactions = state.transactions.filter(t => t.id !== id);
+  } else if (type === 'invoice') {
+    state.invoiceItems = state.invoiceItems.filter(item => item.invoice_id !== id);
+    state.payments = state.payments.filter(p => p.invoice_id !== id);
+    state.transactions = state.transactions.filter(t => t.invoice_id !== id && !(t.reference_type === 'invoice' && t.reference_id === id));
+    state.invoices = state.invoices.filter(inv => inv.id !== id);
+  } else if (type === 'expense') {
+    state.transactions = state.transactions.filter(t => !(t.reference_type === 'expense' && t.reference_id === id));
+    state.expenses = state.expenses.filter(e => e.id !== id);
+  } else if (type === 'payment') {
+    state.transactions = state.transactions.filter(t => !(t.reference_type === 'payment' && t.reference_id === id));
+    state.payments = state.payments.filter(p => p.id !== id);
+  } else if (type === 'distribution') {
+    state.transactions = state.transactions.filter(t => !(t.reference_type === 'distribution' && t.reference_id === id));
+    state.distributions = state.distributions.filter(d => d.id !== id);
+  } else if (type === 'loan') {
+    state.loanTransactions = state.loanTransactions.filter(lt => lt.loan_id !== id);
+    state.transactions = state.transactions.filter(t => !(t.reference_type === 'loan' && t.reference_id === id));
+    state.loans = state.loans.filter(l => l.id !== id);
+  }
+  recalculateClientBalances(state);
 }
 
 export function handleClientRequest<T>(
@@ -273,7 +312,7 @@ export function handleClientRequest<T>(
           expenses_paid: musaddiqExpenses,
           drawings: 0,
           dividends: musaddiqDividends,
-          partner_balance: musaddiqAcc?.current_balance || 10452
+          partner_balance: musaddiqAcc?.current_balance ?? 0
         },
         arshad: {
           id: 2,
@@ -282,20 +321,18 @@ export function handleClientRequest<T>(
           expenses_paid: arshadExpenses,
           drawings: 0,
           dividends: arshadDividends,
-          partner_balance: arshadAcc?.current_balance || 20920
+          partner_balance: arshadAcc?.current_balance ?? 0
         }
       },
       charts: {
         revenue_expenses: monthlyChart,
-        expenses_by_category: [
-          { category: 'salary', total: 195000 },
-          { category: 'office_rent', total: 90000 },
-          { category: 'software_tools', total: 78548 },
-          { category: 'utilities', total: 32080 },
-          { category: 'contractors', total: 25000 },
-          { category: 'marketing', total: 15000 },
-          { category: 'miscellaneous', total: 10000 }
-        ]
+        expenses_by_category: Object.entries(
+          state.expenses.reduce((acc: Record<string, number>, e) => {
+            const cat = e.category || 'miscellaneous';
+            acc[cat] = (acc[cat] || 0) + (e.amount_pkr || 0);
+            return acc;
+          }, {})
+        ).map(([category, total]) => ({ category, total }))
       },
       recent_transactions: state.transactions.slice(-10).reverse()
     } as T;
@@ -757,7 +794,68 @@ export function handleClientRequest<T>(
     } as T;
   }
 
-  // 20. Reset blank
+  // 20. History Management & Record Deletion
+  if (path === '/history/delete-item' && method === 'POST') {
+    const { type, id } = body || {};
+    deleteClientRecordInternal(state, type, Number(id));
+    saveState(state);
+    return { success: true, message: `Record #${id} (${type}) successfully deleted` } as T;
+  }
+
+  if (path === '/history/delete-multiple' && method === 'POST') {
+    const { items } = body || {};
+    if (Array.isArray(items)) {
+      for (const it of items) {
+        deleteClientRecordInternal(state, it.type, Number(it.id));
+      }
+    }
+    saveState(state);
+    return { success: true, deletedCount: items?.length || 0, message: `Successfully deleted ${items?.length || 0} records.` } as T;
+  }
+
+  if (path === '/history/delete-all' && method === 'POST') {
+    state.transactions = [];
+    state.invoices = [];
+    state.invoiceItems = [];
+    state.payments = [];
+    state.expenses = [];
+    state.distributions = [];
+    state.loans = [];
+    state.loanTransactions = [];
+    state.accounts.forEach(a => a.current_balance = 0);
+    saveState(state);
+    return { success: true, message: 'All previous calculator records successfully deleted.' } as T;
+  }
+
+  if (path.startsWith('/transactions/') && method === 'DELETE') {
+    const id = Number(path.split('/')[2]);
+    deleteClientRecordInternal(state, 'transaction', id);
+    saveState(state);
+    return { success: true, message: 'Transaction deleted' } as T;
+  }
+
+  if (path.startsWith('/expenses/') && method === 'DELETE') {
+    const id = Number(path.split('/')[2]);
+    deleteClientRecordInternal(state, 'expense', id);
+    saveState(state);
+    return { success: true, message: 'Expense deleted' } as T;
+  }
+
+  if (path.startsWith('/invoices/') && method === 'DELETE') {
+    const id = Number(path.split('/')[2]);
+    deleteClientRecordInternal(state, 'invoice', id);
+    saveState(state);
+    return { success: true, message: 'Invoice deleted' } as T;
+  }
+
+  if (path.startsWith('/payments/') && method === 'DELETE') {
+    const id = Number(path.split('/')[2]);
+    deleteClientRecordInternal(state, 'payment', id);
+    saveState(state);
+    return { success: true, message: 'Payment deleted' } as T;
+  }
+
+  // 21. Reset blank
   if (path === '/system/reset-blank' && method === 'POST') {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(STORAGE_KEY);

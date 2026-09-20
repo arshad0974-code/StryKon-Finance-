@@ -12,7 +12,8 @@ import {
   Landmark,
   PieChart,
   CheckCircle2,
-  Settings
+  Settings,
+  History
 } from 'lucide-react';
 
 export type TabType =
@@ -26,6 +27,7 @@ export type TabType =
   | 'payroll'
   | 'loans_distributions'
   | 'reports'
+  | 'history'
   | 'checklist'
   | 'settings';
 
@@ -48,6 +50,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onTabChange,
     { id: 'payroll' as TabType, label: 'Payroll & Staff', icon: Users, adminOnly: true },
     { id: 'loans_distributions' as TabType, label: 'Loans & Dividends', icon: Building2 },
     { id: 'reports' as TabType, label: 'Financial Reports', icon: PieChart },
+    { id: 'history' as TabType, label: 'Previous Data', icon: History },
     { id: 'checklist' as TabType, label: 'Acceptance 14/14', icon: CheckCircle2, highlight: true },
     { id: 'settings' as TabType, label: 'Settings & Audit', icon: Settings, adminOnly: true },
   ];

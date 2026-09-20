@@ -17,6 +17,7 @@ import { PayrollView } from './components/PayrollView';
 import { LoansDistributionsView } from './components/LoansDistributionsView';
 import { AccountsView } from './components/AccountsView';
 import { ReportsView } from './components/ReportsView';
+import { PreviousDataView } from './components/PreviousDataView';
 import { AcceptanceChecklistView } from './components/AcceptanceChecklistView';
 import { SettingsView } from './components/SettingsView';
 
@@ -268,6 +269,21 @@ export default function App() {
 
         {currentTab === 'reports' && (
           <ReportsView />
+        )}
+
+        {currentTab === 'history' && (
+          <PreviousDataView
+            transactions={transactions}
+            invoices={invoices}
+            expenses={expenses}
+            payments={payments}
+            distributions={distributions}
+            loans={loans}
+            accounts={accounts}
+            partners={partners}
+            onRefresh={loadAllData}
+            onNavigateTab={(tab) => setCurrentTab(tab)}
+          />
         )}
 
         {currentTab === 'checklist' && (

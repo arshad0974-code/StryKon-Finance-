@@ -138,14 +138,33 @@ export function run(sqlStr: string, params: SqlValue[] = []): { lastInsertRowid:
 
 export function transaction<T>(fn: () => T): T {
   const database = getDb();
-  database.run('BEGIN TRANSACTION;');
+  let inTxn = false;
+  try {
+    database.run('BEGIN TRANSACTION;');
+    inTxn = true;
+  } catch {
+    inTxn = false;
+  }
   try {
     const result = fn();
-    database.run('COMMIT;');
+    if (inTxn) {
+      try {
+        database.run('COMMIT;');
+      } catch (commitErr) {
+        console.warn('Commit warning:', commitErr);
+      }
+    }
     saveDb();
     return result;
   } catch (err) {
-    database.run('ROLLBACK;');
+    console.error('Transaction execution failed:', err);
+    if (inTxn) {
+      try {
+        database.run('ROLLBACK;');
+      } catch (rollbackErr) {
+        // sql.js might have automatically aborted transaction on fatal query failure
+      }
+    }
     throw err;
   }
 }

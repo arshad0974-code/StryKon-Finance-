@@ -335,3 +335,18 @@ export interface AcceptanceTestResult {
   passed: boolean;
   detail: string;
 }
+
+export interface HistoryRecord {
+  id: string; // unique key, e.g. "txn-12", "inv-4", "exp-7"
+  rawId: number;
+  type: 'transaction' | 'invoice' | 'expense' | 'payment' | 'distribution' | 'loan';
+  typeLabel: string;
+  title: string;
+  subtitle?: string;
+  date: string;
+  amount: number;
+  currency: string;
+  category?: string;
+  status?: string;
+  details?: string;
+}
