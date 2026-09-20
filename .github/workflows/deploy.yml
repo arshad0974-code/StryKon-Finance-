@@ -48,14 +48,12 @@ jobs:
           NODE_ENV: production
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
 
-      - name: Ensure Fallback, NoJekyll & Standalone Files in dist
+      - name: Ensure Fallback, NoJekyll & Clean Assets in dist
         run: |
           # Disable Jekyll on GitHub Pages so all static files and folders are served
           touch dist/.nojekyll
-          # Copy standalone HTML to dist root if not already present
-          if [ -f strykon-finance.html ] && [ ! -f dist/strykon-finance.html ]; then
-            cp strykon-finance.html dist/strykon-finance.html
-          fi
+          # Ensure legacy standalone HTML is NOT deployed to dist
+          rm -f dist/strykon-finance.html
           # Ensure 404.html routes back to index.html for SPA routing on GitHub Pages
           if [ ! -f dist/404.html ]; then
             cp dist/index.html dist/404.html

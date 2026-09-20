@@ -380,6 +380,32 @@ apiRouter.post('/invoices', (req, res) => {
   res.json({ success: true, id: invId, invoice_number: invNumber });
 });
 
+apiRouter.put('/invoices/:id', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const invId = Number(req.params.id);
+  const { currency, exchange_rate, due_date, notes, status, total_amount } = req.body;
+
+  const existing = queryOne('SELECT * FROM invoices WHERE id = ?', [invId]);
+  if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+
+  const curr = currency || existing.currency || 'PKR';
+  const rate = curr === 'USD' ? (Number(exchange_rate) || existing.exchange_rate || 280) : 1.0;
+  const newTotal = total_amount !== undefined ? Number(total_amount) : existing.total_amount;
+  const newTotalPkr = Math.round(newTotal * rate * 100) / 100;
+  const newDue = due_date || existing.due_date;
+  const newNotes = notes !== undefined ? notes : existing.notes;
+  const newStatus = status || existing.status;
+  const newBalance = Math.max(0, newTotal - (existing.paid_amount || 0));
+
+  run(`
+    UPDATE invoices 
+    SET currency = ?, exchange_rate = ?, due_date = ?, notes = ?, status = ?, total_amount = ?, total_amount_pkr = ?, balance_due = ?
+    WHERE id = ?
+  `, [curr, rate, newDue, newNotes, newStatus, newTotal, newTotalPkr, newBalance, invId]);
+
+  res.json({ success: true, id: invId });
+});
+
 // 9. Payments & Receipts (Crucial Financial Logic)
 apiRouter.get('/payments', (req, res) => {
   const currentUser = getCurrentUser(req);
@@ -558,6 +584,33 @@ apiRouter.post('/expenses', (req, res) => {
   });
 
   res.json({ success: true, id: expId, expense_number: expNumber, amount_pkr: amtPkr });
+});
+
+apiRouter.put('/expenses/:id', (req, res) => {
+  const currentUser = getCurrentUser(req);
+  const expId = Number(req.params.id);
+  const { title, category, currency, exchange_rate, amount_original, vendor, expense_date, notes } = req.body;
+
+  const existing = queryOne('SELECT * FROM expenses WHERE id = ?', [expId]);
+  if (!existing) return res.status(404).json({ error: 'Expense not found' });
+
+  const curr = currency || existing.currency || 'PKR';
+  const rate = curr === 'USD' ? (Number(exchange_rate) || existing.exchange_rate || 280) : 1.0;
+  const newAmtOrig = amount_original !== undefined ? Number(amount_original) : existing.amount_original;
+  const newAmtPkr = Math.round(newAmtOrig * rate * 100) / 100;
+  const newTitle = title || existing.title;
+  const newCategory = category || existing.category;
+  const newVendor = vendor !== undefined ? vendor : existing.vendor;
+  const newDate = expense_date || existing.expense_date;
+  const newNotes = notes !== undefined ? notes : existing.notes;
+
+  run(`
+    UPDATE expenses 
+    SET title = ?, category = ?, currency = ?, exchange_rate = ?, amount_original = ?, amount_pkr = ?, vendor = ?, expense_date = ?, notes = ?
+    WHERE id = ?
+  `, [newTitle, newCategory, curr, rate, newAmtOrig, newAmtPkr, newVendor, newDate, newNotes, expId]);
+
+  res.json({ success: true, id: expId });
 });
 
 // 11. Employees & Payroll

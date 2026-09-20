@@ -881,6 +881,48 @@ export function handleClientRequest<T>(
     return { success: true, message: 'Transaction deleted' } as T;
   }
 
+  if (path.startsWith('/expenses/') && method === 'PUT') {
+    const id = Number(path.split('/')[2]);
+    const exp = state.expenses.find(e => e.id === id);
+    if (exp) {
+      if (body.title) exp.title = body.title;
+      if (body.category) exp.category = body.category;
+      if (body.currency) exp.currency = body.currency;
+      if (body.amount_original !== undefined) {
+        exp.amount_original = Number(body.amount_original);
+        const rate = body.exchange_rate !== undefined ? Number(body.exchange_rate) : (exp.exchange_rate || 1);
+        exp.exchange_rate = rate;
+        exp.amount_pkr = Math.round(exp.amount_original * (exp.currency === 'USD' ? rate : 1));
+      }
+      if (body.vendor !== undefined) exp.vendor = body.vendor;
+      if (body.expense_date) exp.expense_date = body.expense_date;
+      if (body.notes !== undefined) exp.notes = body.notes;
+      saveState(state);
+      return { success: true, id } as T;
+    }
+    return { success: false, error: 'Expense not found' } as T;
+  }
+
+  if (path.startsWith('/invoices/') && method === 'PUT') {
+    const id = Number(path.split('/')[2]);
+    const inv = state.invoices.find(i => i.id === id);
+    if (inv) {
+      if (body.currency) inv.currency = body.currency;
+      if (body.exchange_rate !== undefined) inv.exchange_rate = Number(body.exchange_rate);
+      if (body.due_date) inv.due_date = body.due_date;
+      if (body.notes !== undefined) inv.notes = body.notes;
+      if (body.status) inv.status = body.status;
+      if (body.total_amount !== undefined) {
+        inv.total_amount = Number(body.total_amount);
+        inv.balance_due = Math.max(0, inv.total_amount - (inv.paid_amount || 0));
+        inv.total_amount_pkr = Math.round(inv.total_amount * (inv.currency === 'USD' ? (inv.exchange_rate || 280) : 1));
+      }
+      saveState(state);
+      return { success: true, id } as T;
+    }
+    return { success: false, error: 'Invoice not found' } as T;
+  }
+
   if (path.startsWith('/expenses/') && method === 'DELETE') {
     const id = Number(path.split('/')[2]);
     deleteClientRecordInternal(state, 'expense', id);

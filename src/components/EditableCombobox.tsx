@@ -75,7 +75,7 @@ export const EditableCombobox: React.FC<EditableComboboxProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
     setIsOpen(true);
-    setHighlightedIndex(0);
+    setHighlightedIndex(-1);
   };
 
   const handleSelect = (option: ComboboxOption) => {
@@ -85,7 +85,6 @@ export const EditableCombobox: React.FC<EditableComboboxProps> = ({
     }
     setIsOpen(false);
     setHighlightedIndex(-1);
-    inputRef.current?.blur();
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -115,14 +114,12 @@ export const EditableCombobox: React.FC<EditableComboboxProps> = ({
         setHighlightedIndex(prev => (prev - 1 + totalItems) % Math.max(1, totalItems));
       }
     } else if (e.key === 'Enter') {
-      if (isOpen) {
-        if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
-          e.preventDefault();
-          handleSelect(filteredOptions[highlightedIndex]);
-        } else if (highlightedIndex === filteredOptions.length && showCreateOption) {
-          e.preventDefault();
-          setIsOpen(false);
-        }
+      if (isOpen && highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+        e.preventDefault();
+        handleSelect(filteredOptions[highlightedIndex]);
+      } else if (isOpen) {
+        // Close dropdown so user can freely submit what they typed
+        setIsOpen(false);
       }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
@@ -192,6 +189,10 @@ export const EditableCombobox: React.FC<EditableComboboxProps> = ({
                   <button
                     key={opt.id ?? `opt-${idx}`}
                     type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(opt);
+                    }}
                     onClick={() => handleSelect(opt)}
                     onMouseEnter={() => setHighlightedIndex(idx)}
                     className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${
@@ -225,9 +226,12 @@ export const EditableCombobox: React.FC<EditableComboboxProps> = ({
             <div className="p-1">
               <button
                 type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setIsOpen(false);
+                }}
                 onClick={() => {
                   setIsOpen(false);
-                  inputRef.current?.blur();
                 }}
                 className="w-full text-left px-3 py-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 transition-colors"
               >

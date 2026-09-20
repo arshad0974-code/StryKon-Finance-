@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Expense, Account, Partner } from '../types';
 import { formatPKR, formatUSD, formatDate } from '../utils/formatters';
-import { TrendingDown, Plus, Filter, Search, Tag, Building2, UserCheck } from 'lucide-react';
+import { TrendingDown, Plus, Filter, Search, Tag, Building2, UserCheck, Eye, Edit2, Printer, X } from 'lucide-react';
 import { api } from '../api';
 import { EditableCombobox, ComboboxOption } from './EditableCombobox';
 
@@ -25,11 +25,25 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Details/Receipt and Edit modal states
+  const [viewingReceiptExpense, setViewingReceiptExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('software_tools');
+  const [editAmount, setEditAmount] = useState<number>(5000);
+  const [editCurrency, setEditCurrency] = useState<'PKR' | 'USD'>('PKR');
+  const [editExchangeRate, setEditExchangeRate] = useState<number>(280);
+  const [editAccountId, setEditAccountId] = useState<number>(1);
+  const [editPaidByPartnerId, setEditPaidByPartnerId] = useState<number | ''>('');
+  const [editVendor, setEditVendor] = useState('');
+  const [editExpenseDate, setEditExpenseDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
   // Form states
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('software_tools');
-  const [amountOriginal, setAmountOriginal] = useState<number>(150);
-  const [currency, setCurrency] = useState<'PKR' | 'USD'>('USD');
+  const [amountOriginal, setAmountOriginal] = useState<number>(5000);
+  const [currency, setCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [exchangeRate, setExchangeRate] = useState<number>(280);
   const [accountId, setAccountId] = useState<number>(accounts[0]?.id || 1);
   const [paidByPartnerId, setPaidByPartnerId] = useState<number | ''>('');
@@ -118,7 +132,53 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     return matchCat && matchSearch;
   });
 
-  const totalExpenseSum = filtered.reduce((acc, e) => acc + e.amount_pkr, 0);
+  const pkrExpenses = useMemo(() => filtered.filter(e => (e.currency || 'PKR') === 'PKR'), [filtered]);
+  const usdExpenses = useMemo(() => filtered.filter(e => e.currency === 'USD'), [filtered]);
+
+  const totalPkrExpenses = useMemo(() => pkrExpenses.reduce((sum, e) => sum + (Number(e.amount_original || e.amount_pkr) || 0), 0), [pkrExpenses]);
+  const totalUsdExpenses = useMemo(() => usdExpenses.reduce((sum, e) => sum + (Number(e.amount_original) || 0), 0), [usdExpenses]);
+
+  const handleOpenEditExpense = (exp: Expense) => {
+    setEditingExpense(exp);
+    setEditTitle(exp.title || '');
+    setEditCategory(exp.category || 'software_tools');
+    setEditAmount(exp.amount_original || exp.amount_pkr || 0);
+    setEditCurrency((exp.currency as 'PKR' | 'USD') || 'PKR');
+    setEditExchangeRate(exp.exchange_rate || 280);
+    setEditAccountId(exp.account_id || 1);
+    setEditPaidByPartnerId(exp.paid_by_partner_id || '');
+    setEditVendor(exp.vendor || '');
+    setEditExpenseDate(exp.expense_date || '');
+    setEditNotes(exp.notes || '');
+  };
+
+  const handleUpdateExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await api.updateExpense(editingExpense.id, {
+        title: editTitle,
+        category: editCategory,
+        amount_original: Number(editAmount),
+        currency: editCurrency,
+        exchange_rate: editCurrency === 'USD' ? Number(editExchangeRate) : 1.0,
+        account_id: editAccountId,
+        paid_by_partner_id: editPaidByPartnerId ? Number(editPaidByPartnerId) : null,
+        vendor: editVendor,
+        expense_date: editExpenseDate,
+        notes: editNotes
+      });
+      setSuccessMsg(`Expense ${editingExpense.expense_number} updated successfully.`);
+      setEditingExpense(null);
+      onRefresh();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update expense');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +254,33 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
         </div>
       )}
 
+      {/* Dual Currency Metrics Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total Operating Spent (PKR)</span>
+          <div className="text-lg font-bold font-mono text-white">
+            ₨ {totalPkrExpenses.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1 block">{pkrExpenses.length} PKR expenses</span>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total Operating Spent (USD)</span>
+          <div className="text-lg font-bold font-mono text-rose-400">
+            ${totalUsdExpenses.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1 block">{usdExpenses.length} USD expenses</span>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total Expenditure Records</span>
+          <div className="text-lg font-bold font-mono text-slate-200">
+            {filtered.length} Items
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1 block">Active filter: {filterCategory === 'all' ? 'All categories' : filterCategory.replace('_', ' ')}</span>
+        </div>
+      </div>
+
       {/* Filter and Search Bar */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1">
@@ -220,10 +307,6 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             <option value="all">All Categories</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
-
-          <span className="text-xs text-slate-400 pl-2 border-l border-slate-800">
-            Total: <strong className="text-rose-400 font-mono">{formatPKR(totalExpenseSum)}</strong>
-          </span>
         </div>
       </div>
 
@@ -237,56 +320,85 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 <th className="py-3 px-3">Date</th>
                 <th className="py-3 px-4">Title / Scope</th>
                 <th className="py-3 px-3">Category</th>
+                <th className="py-3 px-3">Currency</th>
                 <th className="py-3 px-3">Vendor</th>
                 <th className="py-3 px-3">Paid From / By</th>
-                <th className="py-3 px-3 text-right">Original Amount</th>
-                <th className="py-3 px-4 text-right">Amount (PKR)</th>
+                <th className="py-3 px-3 text-right">Amount</th>
+                <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-200">
-              {filtered.map((e) => (
-                <tr key={e.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-slate-300">
-                    {e.expense_number}
-                  </td>
-                  <td className="py-3 px-3 text-slate-400 whitespace-nowrap">
-                    {formatDate(e.expense_date)}
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-white">
-                    {e.title}
-                  </td>
-                  <td className="py-3 px-3 whitespace-nowrap">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 border border-slate-700 capitalize">
-                      {e.category.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-slate-300">
-                    {e.vendor || '—'}
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="text-slate-300">{e.account_name}</div>
-                    {e.paid_by_partner_id && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold inline-block mt-0.5 ${
-                        e.paid_by_partner_id === 1 ? 'bg-blue-900/40 text-blue-300' : 'bg-purple-900/40 text-purple-300'
+              {filtered.map((e) => {
+                const isUsd = e.currency === 'USD';
+                return (
+                  <tr key={e.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-slate-300">
+                      {e.expense_number}
+                    </td>
+                    <td className="py-3 px-3 text-slate-400 whitespace-nowrap">
+                      {formatDate(e.expense_date)}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-white">
+                      {e.title}
+                    </td>
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+                        {e.category.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                        isUsd ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                       }`}>
-                        Partner: {e.paid_by_partner_id === 1 ? 'Musaddiq' : 'Arshad'}
+                        {isUsd ? 'USD ($)' : 'PKR (₨)'}
                       </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono font-medium">
-                    {e.currency === 'USD' ? (
-                      <span className="text-rose-400 font-bold">
-                        {formatUSD(e.amount_original)} <span className="text-[10px] text-slate-500">(@{e.exchange_rate})</span>
-                      </span>
-                    ) : (
-                      formatPKR(e.amount_original)
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono font-bold text-white whitespace-nowrap">
-                    {formatPKR(e.amount_pkr)}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-3 text-slate-300">
+                      {e.vendor || '—'}
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="text-slate-300">{e.account_name}</div>
+                      {e.paid_by_partner_id && (
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold inline-block mt-0.5 ${
+                          e.paid_by_partner_id === 1 ? 'bg-blue-900/40 text-blue-300' : 'bg-purple-900/40 text-purple-300'
+                        }`}>
+                          Partner: {e.paid_by_partner_id === 1 ? 'Musaddiq' : 'Arshad'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono font-medium">
+                      {isUsd ? (
+                        <div>
+                          <span className="text-rose-400 font-bold">${Number(e.amount_original).toLocaleString()}</span>
+                          <span className="text-[10px] text-slate-500 block font-normal">(PKR {Math.round(e.amount_pkr).toLocaleString()})</span>
+                        </div>
+                      ) : (
+                        <span className="font-bold text-white">₨ {Number(e.amount_original || e.amount_pkr).toLocaleString()}</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setViewingReceiptExpense(e)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                          title="View Expense Details & Receipt"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditExpense(e)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                          title="Edit Expense"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -349,14 +461,15 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               {/* Currency & Amount */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Currency</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Currency *</label>
                   <select
+                    id="exp-currency-select"
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value as any)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
                   >
-                    <option value="USD">USD ($)</option>
-                    <option value="PKR">PKR (Rs)</option>
+                    <option value="PKR">PKR — Pakistani Rupee (₨)</option>
+                    <option value="USD">USD — US Dollar ($)</option>
                   </select>
                 </div>
                 <div>
@@ -470,6 +583,256 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 </button>
               </div>
 
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EXPENSE RECEIPT & DETAILS */}
+      {viewingReceiptExpense && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div>
+                <span className="text-[10px] font-bold tracking-widest text-rose-400 uppercase">StryKon Expenditure Receipt</span>
+                <h3 className="text-xl font-bold text-white font-mono mt-0.5">{viewingReceiptExpense.expense_number}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingReceiptExpense(null)}
+                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-slate-400 block font-semibold">Expenditure / Scope:</span>
+                <span className="text-white font-bold text-sm block mt-0.5">{viewingReceiptExpense.title}</span>
+                <span className="text-slate-400 block mt-1">Vendor: {viewingReceiptExpense.vendor || 'N/A'}</span>
+                <span className="text-slate-400 block">Date: {formatDate(viewingReceiptExpense.expense_date)}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-slate-400 block font-semibold">Currency:</span>
+                <span className="text-rose-400 font-bold font-mono text-sm block mt-0.5">
+                  {viewingReceiptExpense.currency === 'USD' ? 'USD — US Dollar ($)' : 'PKR — Pakistani Rupee (₨)'}
+                </span>
+                <span className="text-slate-400 block mt-1">Funding Account:</span>
+                <span className="font-semibold text-white">
+                  {viewingReceiptExpense.account_name}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-300 border-b border-slate-700/70 pb-2 font-semibold">
+                <span>Category</span>
+                <span className="capitalize">{viewingReceiptExpense.category.replace('_', ' ')}</span>
+              </div>
+              <div className="flex justify-between text-white font-bold text-sm pt-1">
+                <span>Recorded Amount</span>
+                <span className="font-mono text-rose-400">
+                  {viewingReceiptExpense.currency === 'USD' ? `$${Number(viewingReceiptExpense.amount_original).toLocaleString()}` : `₨ ${Number(viewingReceiptExpense.amount_original || viewingReceiptExpense.amount_pkr).toLocaleString()}`}
+                </span>
+              </div>
+              {viewingReceiptExpense.currency === 'USD' && (
+                <div className="flex justify-between text-[11px] text-slate-400 pt-1">
+                  <span>PKR Equivalent (@{viewingReceiptExpense.exchange_rate})</span>
+                  <span className="font-mono">₨ {Number(viewingReceiptExpense.amount_pkr).toLocaleString()}</span>
+                </div>
+              )}
+              {viewingReceiptExpense.paid_by_partner_id && (
+                <div className="flex justify-between text-[11px] text-purple-300 pt-1 border-t border-slate-700/70">
+                  <span>Out of Pocket Attribution</span>
+                  <span>{viewingReceiptExpense.paid_by_partner_id === 1 ? 'Musaddiq Mustafa' : 'Arshad Qazi'}</span>
+                </div>
+              )}
+            </div>
+
+            {viewingReceiptExpense.notes && (
+              <div className="text-xs text-slate-400 bg-slate-800/30 p-3 rounded-lg border border-slate-800">
+                <span className="font-semibold text-slate-300 block mb-1">Notes / Invoice Ref:</span>
+                {viewingReceiptExpense.notes}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingReceiptExpense(null)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT EXPENSE */}
+      {editingExpense && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <TrendingDown className="w-5 h-5 text-rose-400" />
+                Edit Expense {editingExpense.expense_number}
+              </h3>
+              <button onClick={() => setEditingExpense(null)} className="text-slate-400 hover:text-white">&times;</button>
+            </div>
+
+            <form onSubmit={handleUpdateExpense} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Expenditure Name * (Type new or select)</label>
+                <EditableCombobox
+                  id="edit-expense-title-combobox"
+                  value={editTitle}
+                  onChange={(val) => setEditTitle(val)}
+                  onSelectOption={(opt) => {
+                    setEditTitle(opt.label);
+                    if (opt.meta?.category) setEditCategory(opt.meta.category);
+                    if (opt.meta?.vendor && !editVendor) setEditVendor(opt.meta.vendor);
+                  }}
+                  options={expenditureOptions}
+                  placeholder="Type or select expenditure name..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Category *</label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  >
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Vendor / Payee</label>
+                  <input
+                    type="text"
+                    value={editVendor}
+                    onChange={(e) => setEditVendor(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Currency *</label>
+                  <select
+                    id="edit-exp-currency"
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value as 'PKR' | 'USD')}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  >
+                    <option value="PKR">PKR — Pakistani Rupee (₨)</option>
+                    <option value="USD">USD — US Dollar ($)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Amount *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Exchange Rate</label>
+                  <input
+                    type="number"
+                    value={editExchangeRate}
+                    disabled={editCurrency === 'PKR'}
+                    onChange={(e) => setEditExchangeRate(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white disabled:opacity-50 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Payment Account *</label>
+                  <select
+                    value={editAccountId}
+                    onChange={(e) => setEditAccountId(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  >
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Paid By (Attribution)</label>
+                  <select
+                    value={editPaidByPartnerId}
+                    onChange={(e) => setEditPaidByPartnerId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  >
+                    <option value="">Company Bank / Treasury</option>
+                    {partners.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} (Partner)</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editExpenseDate}
+                    onChange={(e) => setEditExpenseDate(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Notes / Ref</label>
+                  <input
+                    type="text"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="px-4 py-2 text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 font-bold text-white rounded-xl shadow-sm"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
             </form>
           </div>
         </div>

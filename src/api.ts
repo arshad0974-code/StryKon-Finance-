@@ -129,6 +129,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  updateInvoice: (id: number, data: any) => request<{ success: boolean; id: number }>('/invoices/' + id, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
 
   // Payments
   getPayments: () => request<Payment[]>('/payments'),
@@ -141,6 +145,10 @@ export const api = {
   getExpenses: () => request<Expense[]>('/expenses'),
   recordExpense: (data: Partial<Expense>) => request<{ success: boolean; id: number; expense_number: string; amount_pkr: number }>('/expenses', {
     method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateExpense: (id: number, data: any) => request<{ success: boolean; id: number }>('/expenses/' + id, {
+    method: 'PUT',
     body: JSON.stringify(data),
   }),
 

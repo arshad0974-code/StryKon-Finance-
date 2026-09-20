@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Client, Contract, Invoice, Account, Partner } from '../types';
 import { formatPKR, formatUSD, formatDate } from '../utils/formatters';
-import { FileText, Users, Plus, DollarSign, Clock, AlertTriangle, CheckCircle, Search, Calendar, CreditCard } from 'lucide-react';
+import { FileText, Users, Plus, DollarSign, Clock, AlertTriangle, CheckCircle, Search, Calendar, CreditCard, Eye, Edit2, Printer, X } from 'lucide-react';
 import { api } from '../api';
 import { EditableCombobox, ComboboxOption } from './EditableCombobox';
 
@@ -33,18 +33,28 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Details/Receipt and Edit invoice states
+  const [viewingReceiptInvoice, setViewingReceiptInvoice] = useState<Invoice | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editInvDueDate, setEditInvDueDate] = useState('');
+  const [editInvCurrency, setEditInvCurrency] = useState<'PKR' | 'USD'>('PKR');
+  const [editInvExchangeRate, setEditInvExchangeRate] = useState<number>(280);
+  const [editInvTotalAmount, setEditInvTotalAmount] = useState<number>(0);
+  const [editInvStatus, setEditInvStatus] = useState<string>('sent');
+  const [editInvNotes, setEditInvNotes] = useState('');
+
   // Invoice form state
   const [invClientName, setInvClientName] = useState('');
-  const [invClientId, setInvClientId] = useState<number | null>(clients[0]?.id || null);
+  const [invClientId, setInvClientId] = useState<number | null>(null);
   const [invContractId, setInvContractId] = useState<number | ''>('');
   const [invIssueDate, setInvIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [invDueDate, setInvDueDate] = useState(
     new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
-  const [invCurrency, setInvCurrency] = useState<'PKR' | 'USD'>('USD');
+  const [invCurrency, setInvCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [invExchangeRate, setInvExchangeRate] = useState<number>(280);
   const [invItems, setInvItems] = useState<{ description: string; quantity: number; unit_price: number }[]>([
-    { description: 'Digital Marketing & Retainer', quantity: 1, unit_price: 1500 }
+    { description: 'Digital Marketing & Retainer', quantity: 1, unit_price: 100000 }
   ]);
   const [invNotes, setInvNotes] = useState('');
 
@@ -57,26 +67,12 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
 
   // Contract form state
   const [conClientName, setConClientName] = useState('');
-  const [conClientId, setConClientId] = useState<number | null>(clients[0]?.id || null);
+  const [conClientId, setConClientId] = useState<number | null>(null);
   const [conTitle, setConTitle] = useState('');
-  const [conValue, setConValue] = useState(2500);
-  const [conCurrency, setConCurrency] = useState<'PKR' | 'USD'>('USD');
+  const [conValue, setConValue] = useState(100000);
+  const [conCurrency, setConCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [conRate, setConRate] = useState(280);
   const [conCycle, setConCycle] = useState<'monthly' | 'milestone' | 'one_time'>('monthly');
-
-  // Sync client names when clients change or on open
-  useEffect(() => {
-    if (clients.length > 0) {
-      if (!invClientName && clients[0]) {
-        setInvClientName(clients[0].company_name || clients[0].name);
-        setInvClientId(clients[0].id);
-      }
-      if (!conClientName && clients[0]) {
-        setConClientName(clients[0].company_name || clients[0].name);
-        setConClientId(clients[0].id);
-      }
-    }
-  }, [clients]);
 
   // Options for EditableCombobox
   const clientOptions: ComboboxOption[] = useMemo(() => {
@@ -132,6 +128,51 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
   // Invoice subtotal calculation
   const invSubtotal = invItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
   const invTotalPkr = invCurrency === 'USD' ? invSubtotal * invExchangeRate : invSubtotal;
+
+  const pkrInvoices = useMemo(() => invoices.filter(inv => (inv.currency || 'PKR') === 'PKR'), [invoices]);
+  const usdInvoices = useMemo(() => invoices.filter(inv => inv.currency === 'USD'), [invoices]);
+
+  const totalPkrInvoiced = useMemo(() => pkrInvoices.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0), [pkrInvoices]);
+  const totalPkrDue = useMemo(() => pkrInvoices.reduce((sum, i) => sum + (Number(i.balance_due) || 0), 0), [pkrInvoices]);
+  const totalPkrPaid = useMemo(() => pkrInvoices.reduce((sum, i) => sum + (Number(i.paid_amount) || 0), 0), [pkrInvoices]);
+
+  const totalUsdInvoiced = useMemo(() => usdInvoices.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0), [usdInvoices]);
+  const totalUsdDue = useMemo(() => usdInvoices.reduce((sum, i) => sum + (Number(i.balance_due) || 0), 0), [usdInvoices]);
+  const totalUsdPaid = useMemo(() => usdInvoices.reduce((sum, i) => sum + (Number(i.paid_amount) || 0), 0), [usdInvoices]);
+
+  const handleOpenEditInvoice = (inv: Invoice) => {
+    setEditingInvoice(inv);
+    setEditInvDueDate(inv.due_date || '');
+    setEditInvCurrency((inv.currency as 'PKR' | 'USD') || 'PKR');
+    setEditInvExchangeRate(inv.exchange_rate || 280);
+    setEditInvTotalAmount(inv.total_amount || 0);
+    setEditInvStatus(inv.status || 'sent');
+    setEditInvNotes(inv.notes || '');
+  };
+
+  const handleUpdateInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInvoice) return;
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await api.updateInvoice(editingInvoice.id, {
+        currency: editInvCurrency,
+        exchange_rate: editInvCurrency === 'USD' ? Number(editInvExchangeRate) : 1.0,
+        due_date: editInvDueDate,
+        total_amount: Number(editInvTotalAmount),
+        status: editInvStatus,
+        notes: editInvNotes
+      });
+      setSuccessMsg(`Invoice ${editingInvoice.invoice_number} updated successfully.`);
+      setEditingInvoice(null);
+      onRefresh();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update invoice');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,83 +400,148 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
 
       {/* SUBTAB 1: INVOICES */}
       {subTab === 'invoices' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4">Invoice #</th>
-                  <th className="py-3 px-3">Client</th>
-                  <th className="py-3 px-3">Issue Date</th>
-                  <th className="py-3 px-3">Due Date</th>
-                  <th className="py-3 px-3 text-right">Total Amount</th>
-                  <th className="py-3 px-3 text-right">Paid</th>
-                  <th className="py-3 px-3 text-right">Balance Due</th>
-                  <th className="py-3 px-3 text-center">Status</th>
-                  <th className="py-3 px-4 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-200">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-slate-300">
-                      {inv.invoice_number}
-                    </td>
-                    <td className="py-3 px-3 font-semibold text-white">
-                      {inv.client_name}
-                    </td>
-                    <td className="py-3 px-3 text-slate-400">
-                      {formatDate(inv.issue_date)}
-                    </td>
-                    <td className="py-3 px-3 text-slate-400">
-                      {formatDate(inv.due_date)}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono font-semibold">
-                      {inv.currency === 'USD' ? (
-                        <div>
-                          <span className="text-emerald-400">{formatUSD(inv.total_amount)}</span>
-                          <span className="text-[10px] text-slate-400 block font-normal">(PKR {Math.round(inv.total_amount_pkr).toLocaleString()})</span>
-                        </div>
-                      ) : (
-                        formatPKR(inv.total_amount)
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono text-emerald-400 font-semibold">
-                      {inv.currency === 'USD' ? formatUSD(inv.paid_amount) : formatPKR(inv.paid_amount)}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold">
-                      <span className={inv.balance_due > 0 ? (inv.status === 'overdue' ? 'text-rose-400' : 'text-amber-400') : 'text-slate-500'}>
-                        {inv.currency === 'USD' ? formatUSD(inv.balance_due) : formatPKR(inv.balance_due)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                        inv.status === 'partially_paid' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                        inv.status === 'overdue' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                        'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                      }`}>
-                        {inv.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {inv.balance_due > 0 ? (
-                        <button
-                          onClick={() => onOpenPaymentForInvoice(inv)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors"
-                        >
-                          Record Payment
-                        </button>
-                      ) : (
-                        <span className="text-slate-500 text-[11px] font-medium flex items-center justify-center gap-1">
-                          <CheckCircle className="w-3 h-3 text-emerald-500" /> Settled
-                        </span>
-                      )}
-                    </td>
+        <div className="space-y-4">
+          {/* Dual Currency Metrics Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total Invoiced (PKR)</span>
+              <div className="text-lg font-bold font-mono text-white">
+                ₨ {totalPkrInvoiced.toLocaleString()}
+              </div>
+              <span className="text-[10px] text-emerald-400 mt-1 block">₨ {totalPkrPaid.toLocaleString()} paid</span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Outstanding Due (PKR)</span>
+              <div className="text-lg font-bold font-mono text-amber-400">
+                ₨ {totalPkrDue.toLocaleString()}
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">{pkrInvoices.length} PKR invoices total</span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total Invoiced (USD)</span>
+              <div className="text-lg font-bold font-mono text-emerald-400">
+                ${totalUsdInvoiced.toLocaleString()}
+              </div>
+              <span className="text-[10px] text-emerald-300 mt-1 block">${totalUsdPaid.toLocaleString()} paid</span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Outstanding Due (USD)</span>
+              <div className="text-lg font-bold font-mono text-rose-400">
+                ${totalUsdDue.toLocaleString()}
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">{usdInvoices.length} USD invoices total</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">Invoice #</th>
+                    <th className="py-3 px-3">Client</th>
+                    <th className="py-3 px-3">Currency</th>
+                    <th className="py-3 px-3">Due Date</th>
+                    <th className="py-3 px-3 text-right">Total Amount</th>
+                    <th className="py-3 px-3 text-right">Paid</th>
+                    <th className="py-3 px-3 text-right">Balance Due</th>
+                    <th className="py-3 px-3 text-center">Status</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                  {invoices.map((inv) => {
+                    const isUsd = inv.currency === 'USD';
+                    return (
+                      <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-slate-300">
+                          {inv.invoice_number}
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-white">
+                          {inv.client_name}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                            isUsd ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}>
+                            {isUsd ? 'USD ($)' : 'PKR (₨)'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-400">
+                          {formatDate(inv.due_date)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-semibold">
+                          {isUsd ? (
+                            <div>
+                              <span className="text-emerald-400">${Number(inv.total_amount).toLocaleString()}</span>
+                              <span className="text-[10px] text-slate-400 block font-normal">(PKR {Math.round(inv.total_amount_pkr).toLocaleString()})</span>
+                            </div>
+                          ) : (
+                            <span>₨ {Number(inv.total_amount).toLocaleString()}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-emerald-400 font-semibold">
+                          {isUsd ? `$${Number(inv.paid_amount || 0).toLocaleString()}` : `₨ ${Number(inv.paid_amount || 0).toLocaleString()}`}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold">
+                          <span className={inv.balance_due > 0 ? (inv.status === 'overdue' ? 'text-rose-400' : 'text-amber-400') : 'text-slate-500'}>
+                            {isUsd ? `$${Number(inv.balance_due).toLocaleString()}` : `₨ ${Number(inv.balance_due).toLocaleString()}`}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            inv.status === 'partially_paid' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                            inv.status === 'overdue' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                            'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                          }`}>
+                            {inv.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setViewingReceiptInvoice(inv)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                              title="View Invoice Receipt / Details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditInvoice(inv)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                              title="Edit Invoice"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            {inv.balance_due > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenPaymentForInvoice(inv)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors"
+                              >
+                                Record Payment
+                              </button>
+                            ) : (
+                              <span className="text-slate-500 text-[11px] font-medium flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-emerald-500" /> Settled
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -605,14 +711,15 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Currency</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Currency *</label>
                   <select
+                    id="inv-currency-select"
                     value={invCurrency}
                     onChange={(e) => setInvCurrency(e.target.value as any)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
                   >
-                    <option value="USD">USD ($)</option>
-                    <option value="PKR">PKR (Rs)</option>
+                    <option value="PKR">PKR — Pakistani Rupee (₨)</option>
+                    <option value="USD">USD — US Dollar ($)</option>
                   </select>
                 </div>
                 <div>
@@ -849,14 +956,15 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Currency</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Currency *</label>
                   <select
+                    id="con-currency-select"
                     value={conCurrency}
                     onChange={(e) => setConCurrency(e.target.value as any)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
                   >
-                    <option value="USD">USD</option>
-                    <option value="PKR">PKR</option>
+                    <option value="PKR">PKR — Pakistani Rupee (₨)</option>
+                    <option value="USD">USD — US Dollar ($)</option>
                   </select>
                 </div>
               </div>
@@ -866,6 +974,217 @@ export const ClientsInvoicesView: React.FC<ClientsInvoicesViewProps> = ({
                 </button>
                 <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 font-bold text-white rounded-xl">
                   {isSubmitting ? 'Saving...' : 'Create Contract'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INVOICE RECEIPT & DETAILS */}
+      {viewingReceiptInvoice && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div>
+                <span className="text-[10px] font-bold tracking-widest text-emerald-400 uppercase">StryKon Finance Receipt</span>
+                <h3 className="text-xl font-bold text-white font-mono mt-0.5">{viewingReceiptInvoice.invoice_number}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingReceiptInvoice(null)}
+                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-slate-400 block font-semibold">Billed To:</span>
+                <span className="text-white font-bold text-sm block mt-0.5">{viewingReceiptInvoice.client_name}</span>
+                <span className="text-slate-400 block mt-1">Issue Date: {formatDate(viewingReceiptInvoice.issue_date)}</span>
+                <span className="text-slate-400 block">Due Date: {formatDate(viewingReceiptInvoice.due_date)}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-slate-400 block font-semibold">Currency:</span>
+                <span className="text-emerald-400 font-bold font-mono text-sm block mt-0.5">
+                  {viewingReceiptInvoice.currency === 'USD' ? 'USD — US Dollar ($)' : 'PKR — Pakistani Rupee (₨)'}
+                </span>
+                <span className="text-slate-400 block mt-1">Status:</span>
+                <span className="font-bold uppercase text-[11px] text-white">
+                  {viewingReceiptInvoice.status.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+
+            {/* Line items summary */}
+            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 space-y-2 text-xs">
+              <div className="flex justify-between font-semibold text-slate-300 border-b border-slate-700/70 pb-2">
+                <span>Description</span>
+                <span>Amount</span>
+              </div>
+              <div className="flex justify-between text-slate-200">
+                <span>Total Invoiced Services</span>
+                <span className="font-mono font-bold">
+                  {viewingReceiptInvoice.currency === 'USD' ? `$${Number(viewingReceiptInvoice.total_amount).toLocaleString()}` : `₨ ${Number(viewingReceiptInvoice.total_amount).toLocaleString()}`}
+                </span>
+              </div>
+              {viewingReceiptInvoice.currency === 'USD' && (
+                <div className="flex justify-between text-[11px] text-slate-400 pt-1">
+                  <span>Exchange Rate (Frozen at Issue)</span>
+                  <span className="font-mono">PKR {viewingReceiptInvoice.exchange_rate} / USD</span>
+                </div>
+              )}
+              <div className="border-t border-slate-700/70 pt-2 flex justify-between text-emerald-400 font-semibold">
+                <span>Total Paid</span>
+                <span className="font-mono">
+                  {viewingReceiptInvoice.currency === 'USD' ? `$${Number(viewingReceiptInvoice.paid_amount || 0).toLocaleString()}` : `₨ ${Number(viewingReceiptInvoice.paid_amount || 0).toLocaleString()}`}
+                </span>
+              </div>
+              <div className="flex justify-between text-amber-400 font-bold text-sm pt-1">
+                <span>Balance Due</span>
+                <span className="font-mono">
+                  {viewingReceiptInvoice.currency === 'USD' ? `$${Number(viewingReceiptInvoice.balance_due).toLocaleString()}` : `₨ ${Number(viewingReceiptInvoice.balance_due).toLocaleString()}`}
+                </span>
+              </div>
+            </div>
+
+            {viewingReceiptInvoice.notes && (
+              <div className="text-xs text-slate-400 bg-slate-800/30 p-3 rounded-lg border border-slate-800">
+                <span className="font-semibold text-slate-300 block mb-1">Notes:</span>
+                {viewingReceiptInvoice.notes}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingReceiptInvoice(null)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT INVOICE */}
+      {editingInvoice && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Edit Invoice {editingInvoice.invoice_number}</h3>
+                <p className="text-xs text-slate-400">Client: {editingInvoice.client_name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingInvoice(null)}
+                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateInvoice} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Currency *</label>
+                  <select
+                    id="edit-inv-currency"
+                    value={editInvCurrency}
+                    onChange={(e) => setEditInvCurrency(e.target.value as 'PKR' | 'USD')}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  >
+                    <option value="PKR">PKR — Pakistani Rupee (₨)</option>
+                    <option value="USD">USD — US Dollar ($)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Total Amount *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editInvTotalAmount}
+                    onChange={(e) => setEditInvTotalAmount(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Due Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editInvDueDate}
+                    onChange={(e) => setEditInvDueDate(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Status *</label>
+                  <select
+                    value={editInvStatus}
+                    onChange={(e) => setEditInvStatus(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  >
+                    <option value="sent">Sent</option>
+                    <option value="partially_paid">Partially Paid</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              {editInvCurrency === 'USD' && (
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Exchange Rate (PKR/USD)</label>
+                  <input
+                    type="number"
+                    value={editInvExchangeRate}
+                    onChange={(e) => setEditInvExchangeRate(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Notes</label>
+                <textarea
+                  rows={2}
+                  value={editInvNotes}
+                  onChange={(e) => setEditInvNotes(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingInvoice(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

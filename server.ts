@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { initDb } from './server/db.js';
@@ -7,6 +8,7 @@ import { apiRouter } from './server/api.js';
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const httpServer = http.createServer(app);
 
   // JSON Body parsing
   app.use(express.json({ limit: '10mb' }));
@@ -31,7 +33,13 @@ async function startServer() {
   // Vite middleware for development or Static Serving for production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        allowedHosts: true as const,
+        // Bind WebSocket server to httpServer so WebSocket upgrades route through port 3000
+        // rather than failing on an unexposed fallback port or invalid ws config key
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -43,7 +51,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Strykon Finance OS running on port ${PORT}`);
   });
 }
