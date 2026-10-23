@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, NotificationItem } from '../types';
-import { Bell, RefreshCw, UserCheck, Shield, CheckCircle, AlertTriangle, Info, Clock, DollarSign } from 'lucide-react';
+import { Bell, RefreshCw, UserCheck, Shield, CheckCircle, AlertTriangle, Info, Clock, DollarSign, LogOut } from 'lucide-react';
 import { setApiAuth } from '../api';
 
 interface HeaderProps {
@@ -13,6 +13,8 @@ interface HeaderProps {
   selectedPartnerFilter: number | null;
   onPartnerFilterChange: (partnerId: number | null) => void;
   isRefreshing: boolean;
+  authUserEmail?: string | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,7 +26,9 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   selectedPartnerFilter,
   onPartnerFilterChange,
-  isRefreshing
+  isRefreshing,
+  authUserEmail,
+  onLogout
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -215,6 +219,31 @@ export const Header: React.FC<HeaderProps> = ({
                 ))}
               </select>
             </div>
+
+            {/* Firebase Auth User Status & Sign Out */}
+            {onLogout && (
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+                {authUserEmail && (
+                  <span
+                    id="auth-user-badge"
+                    title={`Signed in via Firebase as ${authUserEmail}`}
+                    className="hidden xl:inline text-[11px] text-slate-400 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700/60 max-w-[160px] truncate font-mono"
+                  >
+                    {authUserEmail}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  id="logout-btn"
+                  onClick={onLogout}
+                  title="Sign out of Firebase authentication session"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            )}
 
           </div>
         </div>

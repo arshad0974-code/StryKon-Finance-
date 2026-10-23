@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { auth } from './firebase';
+import { AuthScreen } from './components/AuthScreen';
+import { Loader2 } from 'lucide-react';
 import {
   User, Partner, Account, Client, Contract, Invoice, Payment, Expense,
   Employee, Payroll, Loan, LoanTransaction, PartnerDistribution, Transaction,
@@ -22,6 +26,8 @@ import { AcceptanceChecklistView } from './components/AcceptanceChecklistView';
 import { SettingsView } from './components/SettingsView';
 
 export default function App() {
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [partnerFilter, setPartnerFilter] = useState<number | null>(null);
@@ -115,9 +121,33 @@ export default function App() {
   };
 
   useEffect(() => {
-    setApiAuth(currentUser.role, currentUser.username);
-    loadAllData();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setAuthLoading(false);
+      if (user) {
+        if (user.email) {
+          setCurrentUser(prev => ({
+            ...prev,
+            email: user.email!,
+            username: user.email!.split('@')[0] || prev.username,
+          }));
+        }
+        setApiAuth(currentUser.role, currentUser.username);
+        loadAllData();
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setFirebaseUser(null);
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
 
   useEffect(() => {
     // If a partner tries to access admin-only tabs, redirect to dashboard
@@ -142,6 +172,29 @@ export default function App() {
 
   const overdueInvoicesCount = invoices.filter(i => i.status === 'overdue').length;
 
+  // 1. Initial Authentication Loading State (Prevents Flash of Protected Content)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-black text-slate-950 text-2xl tracking-wider shadow-lg shadow-emerald-500/20 animate-pulse">
+            S
+          </div>
+          <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+            <span>Verifying Authentication Session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated Gate — Renders Authentication Screen
+  if (!firebaseUser) {
+    return <AuthScreen onAuthSuccess={loadAllData} />;
+  }
+
+  // 3. Authenticated Application — Renders Full Expense Tracker Interface
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
       
@@ -164,6 +217,8 @@ export default function App() {
           }
         }}
         isRefreshing={isRefreshing}
+        authUserEmail={firebaseUser.email}
+        onLogout={handleLogout}
       />
 
       {/* Main Tab Navigation */}
